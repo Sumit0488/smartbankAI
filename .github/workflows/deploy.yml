@@ -106,6 +106,7 @@ jobs:
           cat graphql/schema/shared.graphql \
               graphql/schema/user.graphql \
               graphql/schema/auth.graphql \
+              graphql/schema/admin.graphql \
               graphql/schema/loan.graphql \
               graphql/schema/investment.graphql \
               graphql/schema/expense.graphql \
