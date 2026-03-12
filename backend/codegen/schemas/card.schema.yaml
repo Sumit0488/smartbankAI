@@ -1,0 +1,153 @@
+# card.schema.yaml
+# SmartBank AI — Card Management Entity Schema
+# Run: node codegen/generator.js codegen/schemas/card.schema.yaml
+# NOTE: Cards are ADMIN-managed global data. All users can READ.
+
+entity: Card
+module: card-management
+collection: cards
+
+fields:
+  - name: card_id
+    type: String
+    external_id: true
+    unique: true
+    description: External unique identifier (auto-generated UUID)
+
+  - name: bank_name
+    type: String
+    required: true
+    index: true
+    searchable: true
+    description: Issuing bank name
+
+  - name: card_name
+    type: String
+    required: true
+    description: Card product name (e.g. HDFC Regalia)
+
+  - name: card_type
+    type: String
+    enum: [credit, debit, prepaid]
+    default: credit
+    description: Type of card
+
+  - name: annual_fee
+    type: Number
+    min: 0
+    default: 0
+    description: Annual fee in INR (0 = lifetime free)
+
+  - name: joining_fee
+    type: Number
+    min: 0
+    default: 0
+    description: One-time joining fee in INR
+
+  - name: cashback_rate
+    type: Number
+    min: 0
+    max: 100
+    description: Cashback or reward rate percentage
+
+  - name: benefits
+    type: String
+    description: Comma-separated benefits list (e.g. Lounge Access, Fuel Surcharge Waiver)
+
+  - name: card_category
+    type: String
+    enum: [shopping, travel, fuel, lifestyle, business, student, basic]
+    description: Primary use category for AI card recommendations
+
+  - name: rating
+    type: Number
+    min: 0
+    max: 5
+    description: Card rating out of 5
+
+  - name: createdAt
+    type: Date
+    auto: true
+
+  - name: updatedAt
+    type: Date
+    auto: true
+
+operations:
+  queries:
+    - name: getAllCards
+      auth: PUBLIC
+      description: List all cards
+
+    - name: getCardById
+      auth: PUBLIC
+
+    - name: getCardsByBank
+      auth: PUBLIC
+      description: Get all cards from a specific bank
+      args:
+        - name: bank_name
+          type: String
+          required: true
+
+    - name: getCardsByType
+      auth: PUBLIC
+      description: Filter cards by credit/debit/prepaid
+      args:
+        - name: card_type
+          type: String
+          required: true
+
+    - name: getCardsByCategory
+      auth: PUBLIC
+      description: Filter cards by category for AI advisor
+      args:
+        - name: card_category
+          type: String
+          required: true
+
+    - name: searchCards
+      auth: PUBLIC
+      description: Search by card name or bank name
+      args:
+        - name: query
+          type: String
+          required: true
+
+  mutations:
+    - name: createCard
+      auth: ADMIN
+      args:
+        - name: input
+          type: CreateCardInput
+
+    - name: updateCard
+      auth: ADMIN
+      args:
+        - name: id
+          type: ID
+          required: true
+        - name: input
+          type: UpdateCardInput
+
+    - name: deleteCard
+      auth: ADMIN
+      args:
+        - name: id
+          type: ID
+          required: true
+
+    - name: seedCards
+      auth: ADMIN
+      description: Seed default Indian bank cards
+
+events: []
+
+permissions:
+  ADMIN:
+    - create
+    - read
+    - update
+    - delete
+  USER:
+    - read

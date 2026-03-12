@@ -1,0 +1,496 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SmartBank AI — Thunder Client / Postman GraphQL Examples
+# Endpoint: http://localhost:4000/graphql
+# Header:   Authorization: Bearer <token>
+#
+# HOW TO GET A TOKEN:
+#   1. Run registerUser or loginUser (no auth header needed)
+#   2. Copy the token from the response
+#   3. Add header: Authorization: Bearer <your_token>
+#
+# HOW TO GENERATE A TEST ADMIN TOKEN:
+#   node scripts/generate-test-token.js admin
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ── 0. HEALTH CHECK (No auth required) ─────────────────────────────────────────
+
+query HealthCheck {
+  healthCheck {
+    status
+    service
+    timestamp
+    version
+  }
+}
+
+
+# ── 1. AUTH ─────────────────────────────────────────────────────────────────────
+
+mutation RegisterUser {
+  registerUser(input: {
+    name: "Rahul Sharma"
+    email: "rahul@example.com"
+    password: "Secure@123"
+    phone: "+919876543210"
+    profileType: WORKING_PROFESSIONAL
+    salary: 800000
+  }) {
+    token
+    user {
+      userId
+      name
+      email
+      role
+    }
+  }
+}
+
+mutation LoginUser {
+  loginUser(
+    email: "rahul@example.com"
+    password: "Secure@123"
+  ) {
+    token
+    user {
+      userId
+      name
+      email
+      role
+    }
+  }
+}
+
+
+# ── 2. PROFILE ───────────────────────────────────────────────────────────────────
+# Header: Authorization: Bearer <token>
+
+query GetProfile {
+  getProfile {
+    userId
+    name
+    email
+    phone
+    role
+    salary
+    profileType
+    isEmailVerified
+    status
+    createdAt
+  }
+}
+
+mutation UpdateProfile {
+  updateProfile(input: {
+    phone: "+919999999999"
+    salary: 1200000
+    profileType: WORKING_PROFESSIONAL
+  }) {
+    userId
+    name
+    phone
+    salary
+    profileType
+    updatedAt
+  }
+}
+
+
+# ── 3. LOANS ─────────────────────────────────────────────────────────────────────
+# Header: Authorization: Bearer <token>
+
+mutation ApplyLoan {
+  applyLoan(input: {
+    loanType: HOME
+    loanAmount: 5000000
+    interestRate: 8.75
+    tenure: 240
+    bankName: "HDFC Bank"
+    notes: "For residential property in Bangalore"
+  }) {
+    loanId
+    userId
+    loanType
+    loanAmount
+    interestRate
+    tenure
+    emi
+    totalPayable
+    totalInterest
+    status
+    bankName
+    createdAt
+  }
+}
+
+query ListLoans {
+  listLoans(page: 1, limit: 10) {
+    items {
+      loanId
+      loanType
+      loanAmount
+      emi
+      status
+      createdAt
+    }
+    total
+    page
+    totalPages
+  }
+}
+
+query GetLoan {
+  getLoan(loanId: "REPLACE_WITH_LOAN_ID") {
+    loanId
+    loanType
+    loanAmount
+    emi
+    totalPayable
+    totalInterest
+    status
+    bankName
+    notes
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CancelLoan {
+  cancelLoan(
+    loanId: "REPLACE_WITH_LOAN_ID"
+    reason: "Found a better rate at another bank"
+  ) {
+    loanId
+    status
+    rejectionReason
+    updatedAt
+  }
+}
+
+# ADMIN only
+mutation ApproveLoan {
+  approveLoan(loanId: "REPLACE_WITH_LOAN_ID") {
+    loanId
+    status
+    updatedAt
+  }
+}
+
+# ADMIN only
+mutation RejectLoan {
+  rejectLoan(
+    loanId: "REPLACE_WITH_LOAN_ID"
+    reason: "Credit score below minimum threshold"
+  ) {
+    loanId
+    status
+    rejectionReason
+    updatedAt
+  }
+}
+
+
+# ── 4. INVESTMENTS ───────────────────────────────────────────────────────────────
+# Header: Authorization: Bearer <token>
+
+mutation CreateInvestment {
+  createInvestment(input: {
+    investmentType: MUTUAL_FUND
+    amount: 50000
+    expectedReturn: 12.5
+    notes: "SIP in large cap equity fund"
+  }) {
+    investmentId
+    userId
+    investmentType
+    amount
+    expectedReturn
+    currentValue
+    status
+    createdAt
+  }
+}
+
+query ListInvestments {
+  listInvestments(page: 1, limit: 10) {
+    items {
+      investmentId
+      investmentType
+      amount
+      currentValue
+      gainLoss
+      gainLossPercent
+      status
+      investedAt
+    }
+    total
+    totalPages
+  }
+}
+
+query GetPortfolioSummary {
+  getPortfolioSummary(userId: "REPLACE_WITH_USER_ID") {
+    totalInvested
+    totalCurrentValue
+    totalGainLoss
+    activeInvestments
+    closedInvestments
+    byType {
+      investmentType
+      count
+      totalInvested
+      totalCurrentValue
+    }
+  }
+}
+
+mutation CloseInvestment {
+  closeInvestment(
+    investmentId: "REPLACE_WITH_INVESTMENT_ID"
+    finalValue: 58500
+  ) {
+    investmentId
+    status
+    currentValue
+    gainLoss
+    gainLossPercent
+    updatedAt
+  }
+}
+
+
+# ── 5. EXPENSES ──────────────────────────────────────────────────────────────────
+# Header: Authorization: Bearer <token>
+
+mutation AddExpense {
+  addExpense(input: {
+    category: FOOD
+    amount: 1250
+    description: "Lunch at office cafeteria"
+    tags: ["lunch", "work"]
+  }) {
+    expenseId
+    category
+    amount
+    description
+    date
+    tags
+    createdAt
+  }
+}
+
+query ListExpenses {
+  listExpenses(
+    page: 1
+    limit: 20
+    filter: { category: FOOD }
+  ) {
+    items {
+      expenseId
+      category
+      amount
+      description
+      date
+    }
+    total
+    totalPages
+  }
+}
+
+query ExpenseSummary {
+  expenseSummary {
+    totalExpenses
+    count
+    monthlyAverage
+    byCategory {
+      category
+      total
+      count
+      percentage
+    }
+  }
+}
+
+mutation DeleteExpense {
+  deleteExpense(expenseId: "REPLACE_WITH_EXPENSE_ID") {
+    success
+    message
+  }
+}
+
+
+# ── 6. FOREX TRANSFERS ───────────────────────────────────────────────────────────
+# Header: Authorization: Bearer <token>
+
+mutation CreateForexTransfer {
+  createForexTransfer(input: {
+    fromCurrency: "INR"
+    toCurrency: "USD"
+    amount: 83500
+    purpose: "University tuition fee payment"
+    recipientName: "MIT Bursar Office"
+    recipientAccount: "001234567890"
+    recipientBank: "Bank of America"
+  }) {
+    transferId
+    fromCurrency
+    toCurrency
+    amount
+    convertedAmount
+    exchangeRate
+    fee
+    status
+    createdAt
+  }
+}
+
+query ListForexTransfers {
+  listForexTransfers(page: 1, limit: 10) {
+    items {
+      transferId
+      fromCurrency
+      toCurrency
+      amount
+      convertedAmount
+      exchangeRate
+      status
+      createdAt
+    }
+    total
+    totalPages
+  }
+}
+
+mutation CancelForexTransfer {
+  cancelForexTransfer(transferId: "REPLACE_WITH_TRANSFER_ID") {
+    transferId
+    status
+    updatedAt
+  }
+}
+
+
+# ── 7. CARDS ─────────────────────────────────────────────────────────────────────
+# Header: Authorization: Bearer <token>
+
+query RecommendCards {
+  recommendCards(
+    salary: 800000
+    creditScore: 720
+    cardType: CREDIT
+  ) {
+    matchScore
+    reasons
+    card {
+      cardId
+      cardName
+      cardType
+      issuer
+      annualFee
+      rewardsRate
+      features
+      minCreditScore
+      minIncome
+    }
+  }
+}
+
+query ListCards {
+  listCards(cardType: CREDIT) {
+    items {
+      cardId
+      cardName
+      issuer
+      annualFee
+      rewardsRate
+      features
+    }
+    total
+  }
+}
+
+mutation SaveCard {
+  saveCard(cardId: "REPLACE_WITH_CARD_ID") {
+    savedCardId
+    cardId
+    savedAt
+    card {
+      cardName
+      issuer
+    }
+  }
+}
+
+query ListSavedCards {
+  listSavedCards {
+    items {
+      savedCardId
+      savedAt
+      card {
+        cardName
+        cardType
+        issuer
+        annualFee
+        rewardsRate
+      }
+    }
+    total
+  }
+}
+
+
+# ── 8. BANKS ─────────────────────────────────────────────────────────────────────
+# No auth required
+
+query ListBanks {
+  listBanks(country: "India") {
+    items {
+      bankId
+      bankName
+      bankCode
+      interestRates {
+        savingsRate
+        fdRate
+        homeLoanRate
+        personalLoanRate
+      }
+      customerRating
+      digitalBankingScore
+      features
+    }
+    total
+  }
+}
+
+query CompareBanks {
+  compareBanks(bankIds: [
+    "REPLACE_WITH_BANK_ID_1"
+    "REPLACE_WITH_BANK_ID_2"
+    "REPLACE_WITH_BANK_ID_3"
+  ]) {
+    bestSavingsRate {
+      bankName
+      interestRates { savingsRate }
+    }
+    lowestHomeLoanRate {
+      bankName
+      interestRates { homeLoanRate }
+    }
+    lowestPersonalLoanRate {
+      bankName
+      interestRates { personalLoanRate }
+    }
+    banks {
+      bankName
+      bankCode
+      interestRates {
+        savingsRate
+        fdRate
+        homeLoanRate
+        carLoanRate
+        personalLoanRate
+      }
+      customerRating
+    }
+  }
+}

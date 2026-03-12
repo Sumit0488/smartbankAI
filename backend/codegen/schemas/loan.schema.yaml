@@ -1,0 +1,172 @@
+# loan.schema.yaml
+# SmartBank AI — Loan Management Entity Schema
+# Run: node codegen/generator.js codegen/schemas/loan.schema.yaml
+
+entity: Loan
+module: loan-management
+collection: loans
+
+fields:
+  - name: loan_id
+    type: String
+    external_id: true
+    unique: true
+    description: External unique identifier (auto-generated UUID)
+
+  - name: user_id
+    type: String
+    required: true
+    index: true
+    description: Reference to the owning user
+
+  - name: loan_type
+    type: String
+    enum: [home, car, personal, education]
+    required: true
+    description: Type of loan
+
+  - name: loan_amount
+    type: Number
+    required: true
+    min: 1000
+    description: Principal loan amount in INR
+
+  - name: interest_rate
+    type: Number
+    required: true
+    min: 0
+    max: 100
+    description: Annual interest rate in percentage
+
+  - name: tenure
+    type: Number
+    required: true
+    min: 1
+    description: Loan tenure in months
+
+  - name: emi
+    type: Number
+    min: 0
+    description: Calculated EMI (auto-computed from amount, rate, tenure)
+
+  - name: total_payable
+    type: Number
+    description: Total amount payable (emi × tenure)
+
+  - name: total_interest
+    type: Number
+    description: Total interest payable
+
+  - name: status
+    type: String
+    enum: [pending, approved, rejected, disbursed, closed]
+    default: pending
+    description: Loan application status
+
+  - name: bank_name
+    type: String
+    description: Preferred bank for the loan
+
+  - name: applied_at
+    type: Date
+    auto: true
+    description: Date of application
+
+  - name: notes
+    type: String
+    maxLength: 500
+
+  - name: createdAt
+    type: Date
+    auto: true
+
+  - name: updatedAt
+    type: Date
+    auto: true
+
+operations:
+  queries:
+    - name: getMyLoans
+      auth: USER
+      description: Get all loan applications of the logged-in user
+
+    - name: getLoansByStatus
+      auth: USER
+      description: Filter loans by status
+      args:
+        - name: status
+          type: String
+          required: true
+
+    - name: getLoanEMI
+      auth: USER
+      description: Calculate EMI without saving a loan record
+      args:
+        - name: loan_amount
+          type: Float
+          required: true
+        - name: interest_rate
+          type: Float
+          required: true
+        - name: tenure
+          type: Int
+          required: true
+
+    - name: getAllLoans
+      auth: ADMIN
+      description: Admin — list all loan applications
+
+  mutations:
+    - name: applyLoan
+      auth: USER
+      description: Apply for a new loan
+      args:
+        - name: input
+          type: ApplyLoanInput
+
+    - name: updateLoan
+      auth: USER
+      description: Update a loan application
+      args:
+        - name: id
+          type: ID
+          required: true
+        - name: input
+          type: UpdateLoanInput
+
+    - name: updateLoanStatus
+      auth: ADMIN
+      description: Admin — approve/reject/disburse a loan
+      args:
+        - name: id
+          type: ID
+          required: true
+        - name: status
+          type: String
+          required: true
+
+    - name: deleteLoan
+      auth: USER
+      description: Withdraw a pending loan application
+      args:
+        - name: id
+          type: ID
+          required: true
+
+events:
+  - trigger: applyLoan
+    emit: LoanApplied
+    notify: email
+
+permissions:
+  ADMIN:
+    - create
+    - read
+    - update
+    - delete
+    - manage_status
+  USER:
+    - create:own
+    - read:own
+    - update:own
+    - delete:own

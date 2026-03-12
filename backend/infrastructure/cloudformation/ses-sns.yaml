@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SmartBankAI - SNS Topics, SQS Queues, and SES Configuration
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+  LoanHandlerArn:
+    Type: String
+    Default: ''
+
+Resources:
+
+  # ─── SNS Topics ───────────────────────────────────────────────────────────────
+  NotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'SmartBankAI-Notifications-${Environment}'
+      DisplayName: SmartBankAI Alerts
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  LoanEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'SmartBankAI-LoanEvents-${Environment}'
+      DisplayName: SmartBankAI Loan Events
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── SQS Dead Letter Queues ───────────────────────────────────────────────────
+  NotificationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'SmartBankAI-NotificationDLQ-${Environment}'
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  EventsDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'SmartBankAI-EventsDLQ-${Environment}.fifo'
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      MessageRetentionPeriod: 1209600
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── SQS Queues ──────────────────────────────────────────────────────────────
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'SmartBankAI-NotificationQueue-${Environment}'
+      VisibilityTimeout: 60
+      MessageRetentionPeriod: 86400
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt NotificationDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  EventsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'SmartBankAI-EventsQueue-${Environment}.fifo'
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      VisibilityTimeout: 60
+      MessageRetentionPeriod: 86400
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EventsDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── SQS Queue Policy (Allow SNS to publish) ─────────────────────────────────
+  NotificationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref NotificationQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSNSPublish
+            Effect: Allow
+            Principal: { Service: sns.amazonaws.com }
+            Action: sqs:SendMessage
+            Resource: !GetAtt NotificationQueue.Arn
+            Condition:
+              ArnEquals:
+                'aws:SourceArn': !Ref NotificationsTopic
+
+  # ─── SNS → SQS Subscription ──────────────────────────────────────────────────
+  NotificationQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref NotificationsTopic
+      Protocol: sqs
+      Endpoint: !GetAtt NotificationQueue.Arn
+      RawMessageDelivery: true
+
+  # ─── CloudWatch Alarms on DLQ ─────────────────────────────────────────────────
+  NotificationDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'SmartBankAI-NotificationDLQ-HasMessages-${Environment}'
+      AlarmDescription: Alert when messages appear in the notification DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt NotificationDLQ.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+Outputs:
+  NotificationsTopicArn:
+    Value: !Ref NotificationsTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-NotificationsTopicArn'
+
+  LoanEventsTopicArn:
+    Value: !Ref LoanEventsTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-LoanEventsTopicArn'
+
+  NotificationQueueUrl:
+    Value: !Ref NotificationQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-NotificationQueueUrl'
+
+  EventsQueueUrl:
+    Value: !Ref EventsQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-EventsQueueUrl'
+
+  NotificationQueueArn:
+    Value: !GetAtt NotificationQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-NotificationQueueArn'

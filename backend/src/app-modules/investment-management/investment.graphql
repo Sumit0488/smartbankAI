@@ -1,0 +1,58 @@
+# SmartBank AI — Investment Management GraphQL Schema
+
+type Investment {
+  _id: ID!
+  investment_id: String
+  user_id: String!
+  investment_type: String!
+  amount: Float!
+  expected_return: Float
+  current_value: Float
+  status: String
+  invested_at: String
+  notes: String
+  createdAt: String
+  updatedAt: String
+}
+
+type PortfolioSummary {
+  totalInvested: Float!
+  currentValue: Float!
+  totalReturn: Float!
+  returnPercentage: Float!
+  activeCount: Int!
+  byType: String
+}
+
+input AddInvestmentInput {
+  investment_type: String!
+  amount: Float!
+  expected_return: Float
+  current_value: Float
+  status: String
+  invested_at: String
+  notes: String
+}
+
+input UpdateInvestmentInput {
+  investment_type: String
+  amount: Float
+  expected_return: Float
+  current_value: Float
+  status: String
+  invested_at: String
+  notes: String
+}
+
+type Query {
+  getMyInvestments: [Investment]
+  getInvestmentsByType(investment_type: String!): [Investment]
+  getPortfolioSummary: PortfolioSummary
+  getAllInvestments: [Investment]
+}
+
+type Mutation {
+  addInvestment(input: AddInvestmentInput!): Investment!
+  updateInvestment(id: ID!, input: UpdateInvestmentInput!): Investment
+  deleteInvestment(id: ID!): DeleteResult!
+}

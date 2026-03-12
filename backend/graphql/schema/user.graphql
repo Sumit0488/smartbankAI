@@ -1,0 +1,79 @@
+"""User authorization roles"""
+enum UserRole {
+  ADMIN
+  USER
+}
+
+"""Current operational status of a user account"""
+enum UserStatus {
+  ACTIVE
+  DELETED
+  INACTIVE
+}
+
+"""Academic or professional profile category of the user"""
+enum UserProfileType {
+  BUSINESS_OWNER
+  OTHER
+  SELF_EMPLOYED
+  STUDENT
+  WORKING_PROFESSIONAL
+}
+
+"""A user record tracking personal and financial metadata"""
+type User {
+  createdAt: DateTime!
+  email: String!
+  id: ID!
+  isEmailVerified: Boolean!
+  name: String!
+  phone: String
+  profileType: UserProfileType!
+  role: UserRole!
+  salary: Float!
+  status: UserStatus!
+  updatedAt: DateTime!
+  userId: String!
+}
+
+"""Paginated list of users with metadata"""
+type UserListResponse {
+  hasNextPage: Boolean!
+  hasPrevPage: Boolean!
+  items: [User!]!
+  limit: Int!
+  page: Int!
+  total: Int!
+  totalPages: Int!
+}
+
+input CreateUserInput {
+  email: String!
+  name: String!
+  password: String!
+  phone: String
+  profileType: UserProfileType
+  salary: Float
+}
+
+input UpdateUserInput {
+  email: String
+  name: String
+  phone: String
+  profileType: UserProfileType
+  salary: Float
+}
+
+extend type Query {
+  getUser(userId: ID!): User
+  getProfile: User
+  listUsers(limit: Int, page: Int, role: UserRole, search: String, status: UserStatus): UserListResponse!
+}
+
+extend type Mutation {
+  createUser(input: CreateUserInput!): User!
+  deleteUser(userId: ID!): DeleteResult!
+  softDeleteUser(userId: ID!): User!
+  updateUser(input: UpdateUserInput!, userId: ID!): User!
+  updateProfile(input: UpdateUserInput!): User!
+}

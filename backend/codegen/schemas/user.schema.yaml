@@ -1,0 +1,131 @@
+# user.schema.yaml
+# SmartBank AI — User Management Entity Schema
+# This is the source of truth for the user-management backend module.
+# Run: node codegen/generator.js codegen/schemas/user.schema.yaml
+
+entity: User
+module: user-management
+collection: users
+
+fields:
+  - name: user_id
+    type: String
+    external_id: true
+    unique: true
+    description: External unique identifier (auto-generated UUID)
+
+  - name: name
+    type: String
+    required: true
+    minLength: 2
+    maxLength: 100
+    description: Full name of the user
+
+  - name: email
+    type: String
+    required: true
+    unique: true
+    index: true
+    format: email
+    description: Email address — used for login and notifications
+
+  - name: password
+    type: String
+    required: true
+    minLength: 8
+    description: Hashed password (bcrypt) — never returned in queries
+
+  - name: role
+    type: String
+    enum: [ADMIN, USER]
+    default: USER
+    description: Access control role
+
+  - name: salary
+    type: Number
+    min: 0
+    default: 0
+    description: Monthly salary in INR — used for loan eligibility
+
+  - name: profileType
+    type: String
+    enum: [Student, Working Professional, Self Employed, Business Owner, Other]
+    default: Other
+    description: Financial profile type
+
+  - name: isEmailVerified
+    type: Boolean
+    default: false
+
+  - name: createdAt
+    type: Date
+    auto: true
+
+  - name: updatedAt
+    type: Date
+    auto: true
+
+operations:
+  queries:
+    - name: getProfile
+      auth: USER
+      description: Get the currently logged-in user's profile
+
+    - name: getAllUsers
+      auth: ADMIN
+      description: List all users (admin only)
+
+    - name: getUserById
+      auth: ADMIN
+      args:
+        - name: id
+          type: ID
+          required: true
+
+  mutations:
+    - name: registerUser
+      auth: PUBLIC
+      description: Register a new user account
+      args:
+        - name: input
+          type: RegisterUserInput
+
+    - name: loginUser
+      auth: PUBLIC
+      description: Login and receive a JWT token
+      args:
+        - name: email
+          type: String
+          required: true
+        - name: password
+          type: String
+          required: true
+
+    - name: updateProfile
+      auth: USER
+      description: Update the authenticated user's profile
+      args:
+        - name: input
+          type: UpdateProfileInput
+
+    - name: deleteUser
+      auth: ADMIN
+      args:
+        - name: id
+          type: ID
+          required: true
+
+events:
+  - trigger: registerUser
+    emit: UserRegistered
+    notify: email
+
+permissions:
+  ADMIN:
+    - create
+    - read
+    - update
+    - delete
+  USER:
+    - read:own
+    - update:own

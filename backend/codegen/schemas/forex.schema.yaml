@@ -1,0 +1,145 @@
+# forex.schema.yaml
+# SmartBank AI — Forex Transfer Management Entity Schema
+# Run: node codegen/generator.js codegen/schemas/forex.schema.yaml
+
+entity: ForexTransfer
+module: forex-management
+collection: forex_transfers
+
+fields:
+  - name: transfer_id
+    type: String
+    external_id: true
+    unique: true
+    description: External unique identifier (auto-generated UUID)
+
+  - name: user_id
+    type: String
+    required: true
+    index: true
+    description: Reference to the owning user
+
+  - name: amount
+    type: Number
+    required: true
+    min: 1
+    description: Source amount to convert
+
+  - name: from_currency
+    type: String
+    required: true
+    maxLength: 3
+    description: Source currency ISO code (e.g. INR)
+
+  - name: to_currency
+    type: String
+    required: true
+    maxLength: 3
+    description: Target currency ISO code (e.g. USD)
+
+  - name: exchange_rate
+    type: Number
+    required: true
+    min: 0
+    description: Effective exchange rate at time of transfer
+
+  - name: converted_amount
+    type: Number
+    min: 0
+    description: Auto-computed result (amount × exchange_rate)
+
+  - name: status
+    type: String
+    enum: [initiated, completed, failed, cancelled]
+    default: initiated
+    description: Transfer lifecycle status
+
+  - name: transferred_at
+    type: Date
+    auto: true
+    description: Timestamp of transfer initiation
+
+  - name: notes
+    type: String
+    maxLength: 300
+
+  - name: createdAt
+    type: Date
+    auto: true
+
+  - name: updatedAt
+    type: Date
+    auto: true
+
+operations:
+  queries:
+    - name: getMyTransfers
+      auth: USER
+      description: Get all forex transfers of the logged-in user
+
+    - name: getTransfersByStatus
+      auth: USER
+      description: Filter transfers by status
+      args:
+        - name: status
+          type: String
+          required: true
+
+    - name: getLiveRate
+      auth: USER
+      description: Fetch real-time exchange rate (no DB write)
+      args:
+        - name: from_currency
+          type: String
+          required: true
+        - name: to_currency
+          type: String
+          required: true
+
+    - name: getAllTransfers
+      auth: ADMIN
+      description: Admin — list all forex transfers
+
+  mutations:
+    - name: initiateTransfer
+      auth: USER
+      description: Initiate a new forex transfer
+      args:
+        - name: input
+          type: InitiateTransferInput
+
+    - name: cancelTransfer
+      auth: USER
+      description: Cancel an initiated transfer
+      args:
+        - name: id
+          type: ID
+          required: true
+
+    - name: updateTransferStatus
+      auth: ADMIN
+      description: Admin — mark transfer completed/failed
+      args:
+        - name: id
+          type: ID
+          required: true
+        - name: status
+          type: String
+          required: true
+
+events:
+  - trigger: initiateTransfer
+    emit: ForexTransferCompleted
+    notify: email
+
+permissions:
+  ADMIN:
+    - create
+    - read
+    - update
+    - delete
+    - manage_status
+  USER:
+    - create:own
+    - read:own
+    - delete:own

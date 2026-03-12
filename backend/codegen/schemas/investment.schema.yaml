@@ -1,0 +1,127 @@
+# investment.schema.yaml
+# SmartBank AI — Investment Management Entity Schema
+# Run: node codegen/generator.js codegen/schemas/investment.schema.yaml
+
+entity: Investment
+module: investment-management
+collection: investments
+
+fields:
+  - name: investment_id
+    type: String
+    external_id: true
+    unique: true
+    description: External unique identifier (auto-generated UUID)
+
+  - name: user_id
+    type: String
+    required: true
+    index: true
+    description: Reference to the owning user
+
+  - name: investment_type
+    type: String
+    enum: [stock, mutual_fund, fixed_deposit]
+    required: true
+    description: Type of investment
+
+  - name: amount
+    type: Number
+    required: true
+    min: 1
+    description: Invested amount in INR
+
+  - name: expected_return
+    type: Number
+    min: 0
+    description: Expected annual return percentage
+
+  - name: current_value
+    type: Number
+    min: 0
+    description: Current market value of investment
+
+  - name: status
+    type: String
+    enum: [active, closed, pending]
+    default: active
+    description: Investment status
+
+  - name: invested_at
+    type: Date
+    description: Date investment was made
+
+  - name: notes
+    type: String
+    maxLength: 500
+    description: Optional notes
+
+  - name: createdAt
+    type: Date
+    auto: true
+
+  - name: updatedAt
+    type: Date
+    auto: true
+
+operations:
+  queries:
+    - name: getMyInvestments
+      auth: USER
+      description: Get all investments of the logged-in user
+
+    - name: getInvestmentsByType
+      auth: USER
+      description: Filter investments by type
+      args:
+        - name: investment_type
+          type: String
+          required: true
+
+    - name: getPortfolioSummary
+      auth: USER
+      description: Aggregated portfolio stats for the current user
+
+    - name: getAllInvestments
+      auth: ADMIN
+      description: Admin — list all investments
+
+  mutations:
+    - name: addInvestment
+      auth: USER
+      description: Add a new investment record
+      args:
+        - name: input
+          type: AddInvestmentInput
+
+    - name: updateInvestment
+      auth: USER
+      description: Update an investment
+      args:
+        - name: id
+          type: ID
+          required: true
+        - name: input
+          type: UpdateInvestmentInput
+
+    - name: deleteInvestment
+      auth: USER
+      description: Delete an investment record
+      args:
+        - name: id
+          type: ID
+          required: true
+
+events: []
+
+permissions:
+  ADMIN:
+    - create
+    - read
+    - update
+    - delete
+  USER:
+    - create:own
+    - read:own
+    - update:own
+    - delete:own

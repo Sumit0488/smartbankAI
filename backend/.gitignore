@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.npm
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+dist/
+coverage/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Lambda ZIP
+dist/*.zip
+
+# Test coverage
+coverage/

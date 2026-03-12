@@ -1,0 +1,179 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SmartBankAI - AWS Cognito User Pool and Client
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+  AppName:
+    Type: String
+    Default: SmartBankAI
+
+Resources:
+
+  # ─── User Pool ─────────────────────────────────────────────────────────────
+  SmartBankUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${AppName}-UserPool-${Environment}'
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      MfaConfiguration: OPTIONAL
+      EnabledMfas:
+        - SOFTWARE_TOKEN_MFA
+
+      # Password Policy
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 7
+
+      # User Attributes
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: phone_number
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+        - Name: role
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+          StringAttributeConstraints:
+            MinLength: '1'
+            MaxLength: '20'
+        - Name: profileType
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+          StringAttributeConstraints:
+            MinLength: '1'
+            MaxLength: '50'
+        - Name: salary
+          AttributeDataType: Number
+          Required: false
+          Mutable: true
+
+      # Account Recovery
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+      # Email Configuration
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+
+      # User Pool Add-ons
+      UserPoolAddOns:
+        AdvancedSecurityMode: ENFORCED
+
+      # Admin Create User Config
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        InviteMessageTemplate:
+          EmailMessage: !Sub |
+            Welcome to ${AppName}! Your temporary password is {####}.
+            Please change it upon first login.
+          EmailSubject: !Sub 'Your ${AppName} temporary password'
+          SMSMessage: !Sub 'Your ${AppName} temp password: {####}'
+
+      # Tags
+      UserPoolTags:
+        Environment: !Ref Environment
+        App: !Ref AppName
+
+  # ─── User Pool Client ───────────────────────────────────────────────────────
+  SmartBankUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${AppName}-WebClient-${Environment}'
+      UserPoolId: !Ref SmartBankUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_CUSTOM_AUTH
+      PreventUserExistenceErrors: ENABLED
+      RefreshTokenValidity: 30
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      ReadAttributes:
+        - email
+        - name
+        - phone_number
+        - custom:role
+        - custom:profileType
+        - custom:salary
+        - email_verified
+      WriteAttributes:
+        - email
+        - name
+        - phone_number
+        - custom:role
+        - custom:profileType
+        - custom:salary
+
+  # ─── Cognito Domain ─────────────────────────────────────────────────────────
+  SmartBankUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub 'smartbankai-${Environment}'
+      UserPoolId: !Ref SmartBankUserPool
+
+  # ─── Admin Group ────────────────────────────────────────────────────────────
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: ADMIN
+      UserPoolId: !Ref SmartBankUserPool
+      Description: SmartBankAI administrators
+      Precedence: 1
+
+  UserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: USER
+      UserPoolId: !Ref SmartBankUserPool
+      Description: SmartBankAI standard users
+      Precedence: 10
+
+Outputs:
+  UserPoolId:
+    Value: !Ref SmartBankUserPool
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolId'
+
+  UserPoolArn:
+    Value: !GetAtt SmartBankUserPool.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolArn'
+
+  UserPoolClientId:
+    Value: !Ref SmartBankUserPoolClient
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolClientId'
+
+  UserPoolDomain:
+    Value: !Sub 'smartbankai-${Environment}.auth.${AWS::Region}.amazoncognito.com'
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolDomain'

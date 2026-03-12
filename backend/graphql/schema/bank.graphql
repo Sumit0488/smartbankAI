@@ -1,0 +1,40 @@
+type BankInterestRates {
+  savingsRate: Float!
+  fdRate: Float!
+  homeLoanRate: Float!
+  carLoanRate: Float!
+  personalLoanRate: Float!
+}
+
+type Bank {
+  id: ID!
+  bankId: ID!
+  bankName: String!
+  bankCode: String!
+  country: String!
+  interestRates: BankInterestRates!
+  features: [String!]!
+  minDeposit: Float
+  customerRating: Float
+  digitalBankingScore: Float
+  createdAt: DateTime
+  updatedAt: DateTime
+}
+
+type BankComparison {
+  banks: [Bank!]!
+  bestSavingsRate: Bank
+  lowestHomeLoanRate: Bank
+  lowestPersonalLoanRate: Bank
+}
+
+type BankListResponse {
+  items: [Bank!]!
+  total: Int!
+}
+
+extend type Query {
+  listBanks(country: String): BankListResponse!
+  compareBanks(bankIds: [ID!]!): BankComparison!
+  getBank(bankId: ID!): Bank
+}

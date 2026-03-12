@@ -1,0 +1,18 @@
+# SmartBank AI — Notification Module GraphQL Schema
+
+type NotificationResult {
+  success: Boolean!
+  message: String!
+}
+
+input SendEmailInput {
+  to: String!
+  subject: String!
+  body: String!
+}
+
+type Mutation {
+  sendEmailNotification(input: SendEmailInput!): NotificationResult!
+  sendWelcomeEmail(userId: ID!): NotificationResult!
+  sendLoanApprovalEmail(loanId: ID!): NotificationResult!
+}

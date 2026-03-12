@@ -1,0 +1,121 @@
+# expense.schema.yaml
+# SmartBank AI — Expense Management Entity Schema
+# Run: node codegen/generator.js codegen/schemas/expense.schema.yaml
+
+entity: Expense
+module: expense-management
+collection: expenses
+
+fields:
+  - name: expense_id
+    type: String
+    external_id: true
+    unique: true
+    description: External unique identifier (auto-generated UUID)
+
+  - name: user_id
+    type: String
+    required: true
+    filterable: true
+    index: true
+    description: Reference to the owning user
+
+  - name: category
+    type: String
+    enum: [food, travel, shopping, rent, other]
+    filterable: true
+    default: other
+    description: Expense category
+
+  - name: amount
+    type: Number
+    min: 0
+    required: true
+    description: Expense amount in INR
+
+  - name: month
+    type: String
+    filterable: true
+    description: Month identifier in YYYY-MM format (e.g. 2026-03)
+
+  - name: description
+    type: String
+    maxLength: 300
+    description: Optional expense description
+
+  - name: createdAt
+    type: Date
+    auto: true
+
+  - name: updatedAt
+    type: Date
+    auto: true
+
+operations:
+  queries:
+    - name: getMyExpenses
+      auth: USER
+      description: Get all expenses of the logged-in user
+
+    - name: getExpensesByMonth
+      auth: USER
+      description: Get expenses for a specific month
+      args:
+        - name: month
+          type: String
+          required: true
+
+    - name: getExpensesByCategory
+      auth: USER
+      description: Filter expenses by category
+      args:
+        - name: category
+          type: String
+          required: true
+
+    - name: getAllExpenses
+      auth: ADMIN
+      description: Admin — list all expenses across all users
+
+  mutations:
+    - name: addExpense
+      auth: USER
+      description: Add a new expense record
+      args:
+        - name: input
+          type: AddExpenseInput
+
+    - name: updateExpense
+      auth: USER
+      description: Update an existing expense
+      args:
+        - name: id
+          type: ID
+          required: true
+        - name: input
+          type: UpdateExpenseInput
+
+    - name: deleteExpense
+      auth: USER
+      description: Delete an expense record
+      args:
+        - name: id
+          type: ID
+          required: true
+
+events:
+  - trigger: addExpense
+    emit: ExpenseAdded
+    notify: email
+
+permissions:
+  ADMIN:
+    - create
+    - read
+    - update
+    - delete
+  USER:
+    - create:own
+    - read:own
+    - update:own
+    - delete:own

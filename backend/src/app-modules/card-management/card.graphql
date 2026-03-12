@@ -1,0 +1,58 @@
+# SmartBank AI — Card Management GraphQL Schema
+# Read operations are PUBLIC (no auth required)
+
+type Card {
+  _id: ID!
+  card_id: String
+  bank_name: String!
+  card_name: String!
+  card_type: String
+  annual_fee: Float
+  joining_fee: Float
+  cashback_rate: Float
+  benefits: String
+  card_category: String
+  rating: Float
+  createdAt: String
+  updatedAt: String
+}
+
+input CreateCardInput {
+  bank_name: String!
+  card_name: String!
+  card_type: String
+  annual_fee: Float
+  joining_fee: Float
+  cashback_rate: Float
+  benefits: String
+  card_category: String
+  rating: Float
+}
+
+input UpdateCardInput {
+  bank_name: String
+  card_name: String
+  card_type: String
+  annual_fee: Float
+  joining_fee: Float
+  cashback_rate: Float
+  benefits: String
+  card_category: String
+  rating: Float
+}
+
+type Query {
+  getAllCards: [Card]
+  getCardById(id: ID!): Card
+  getCardsByBank(bank_name: String!): [Card]
+  getCardsByType(card_type: String!): [Card]
+  getCardsByCategory(card_category: String!): [Card]
+  searchCards(query: String!): [Card]
+}
+
+type Mutation {
+  createCard(input: CreateCardInput!): Card!
+  updateCard(id: ID!, input: UpdateCardInput!): Card
+  deleteCard(id: ID!): DeleteResult!
+  seedCards: SeedResult!
+}

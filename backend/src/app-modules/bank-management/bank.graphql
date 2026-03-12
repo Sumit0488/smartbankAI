@@ -1,0 +1,50 @@
+# SmartBank AI — Bank Management GraphQL Schema
+# Read operations are PUBLIC (no auth required)
+
+type Bank {
+  _id: ID!
+  bank_id: String
+  bank_name: String!
+  minimum_balance: Float
+  interest_rate: Float
+  forex_fee: Float
+  account_types: String
+  features: String
+  rating: Float
+  createdAt: String
+  updatedAt: String
+}
+
+input CreateBankInput {
+  bank_name: String!
+  minimum_balance: Float
+  interest_rate: Float
+  forex_fee: Float
+  account_types: String
+  features: String
+  rating: Float
+}
+
+input UpdateBankInput {
+  bank_name: String
+  minimum_balance: Float
+  interest_rate: Float
+  forex_fee: Float
+  account_types: String
+  features: String
+  rating: Float
+}
+
+type Query {
+  getAllBanks: [Bank]
+  getBankById(id: ID!): Bank
+  searchBanks(query: String!): [Bank]
+  compareBanks(ids: [ID!]!): [Bank]
+}
+
+type Mutation {
+  createBank(input: CreateBankInput!): Bank!
+  updateBank(id: ID!, input: UpdateBankInput!): Bank
+  deleteBank(id: ID!): DeleteResult!
+  seedBanks: SeedResult!
+}

@@ -1,0 +1,84 @@
+enum ExpenseCategory {
+  FOOD
+  TRANSPORT
+  HOUSING
+  ENTERTAINMENT
+  HEALTHCARE
+  SHOPPING
+  UTILITIES
+  EDUCATION
+  OTHER
+}
+
+type Expense {
+  id: ID!
+  expenseId: ID!
+  userId: ID!
+  category: ExpenseCategory!
+  amount: Float!
+  description: String
+  date: DateTime!
+  tags: [String]
+  createdAt: DateTime
+  updatedAt: DateTime
+}
+
+type ExpenseCategoryBreakdown {
+  category: ExpenseCategory!
+  total: Float!
+  count: Int!
+  percentage: Float!
+}
+
+type ExpenseSummary {
+  totalExpenses: Float!
+  byCategory: [ExpenseCategoryBreakdown!]!
+  monthlyAverage: Float!
+  count: Int!
+}
+
+type ExpenseListResponse {
+  items: [Expense!]!
+  total: Int!
+  page: Int!
+  limit: Int!
+  totalPages: Int!
+  hasNextPage: Boolean!
+  hasPrevPage: Boolean!
+}
+
+input AddExpenseInput {
+  category: ExpenseCategory!
+  amount: Float!
+  description: String
+  date: DateTime
+  tags: [String]
+}
+
+input UpdateExpenseInput {
+  category: ExpenseCategory
+  amount: Float
+  description: String
+  date: DateTime
+  tags: [String]
+}
+
+input ExpenseFilter {
+  category: ExpenseCategory
+  dateFrom: DateTime
+  dateTo: DateTime
+  minAmount: Float
+  maxAmount: Float
+}
+
+extend type Query {
+  listExpenses(page: Int, limit: Int, filter: ExpenseFilter): ExpenseListResponse!
+  expenseSummary(dateFrom: DateTime, dateTo: DateTime): ExpenseSummary!
+  getExpense(expenseId: ID!): Expense
+}
+
+extend type Mutation {
+  addExpense(input: AddExpenseInput!): Expense!
+  updateExpense(expenseId: ID!, input: UpdateExpenseInput!): Expense!
+  deleteExpense(expenseId: ID!): DeleteResult!
+}

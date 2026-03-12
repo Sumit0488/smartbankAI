@@ -1,0 +1,58 @@
+# SmartBank AI — Loan Management GraphQL Schema
+
+type Loan {
+  _id: ID!
+  loan_id: String
+  user_id: String!
+  loan_type: String!
+  loan_amount: Float!
+  interest_rate: Float!
+  tenure: Int!
+  emi: Float
+  total_payable: Float
+  total_interest: Float
+  status: String
+  bank_name: String
+  applied_at: String
+  notes: String
+  createdAt: String
+  updatedAt: String
+}
+
+type EMIResult {
+  emi: Float!
+  totalPayable: Float!
+  totalInterest: Float!
+}
+
+input ApplyLoanInput {
+  loan_type: String!
+  loan_amount: Float!
+  interest_rate: Float!
+  tenure: Int!
+  bank_name: String
+  notes: String
+}
+
+input UpdateLoanInput {
+  loan_type: String
+  loan_amount: Float
+  interest_rate: Float
+  tenure: Int
+  bank_name: String
+  notes: String
+}
+
+type Query {
+  getMyLoans: [Loan]
+  getLoansByStatus(status: String!): [Loan]
+  getLoanEMI(loan_amount: Float!, interest_rate: Float!, tenure: Int!): EMIResult!
+  getAllLoans: [Loan]
+}
+
+type Mutation {
+  applyLoan(input: ApplyLoanInput!): Loan!
+  updateLoan(id: ID!, input: UpdateLoanInput!): Loan
+  updateLoanStatus(id: ID!, status: String!): Loan
+  deleteLoan(id: ID!): DeleteResult!
+}

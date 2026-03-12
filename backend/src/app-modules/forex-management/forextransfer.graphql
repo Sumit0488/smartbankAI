@@ -1,0 +1,44 @@
+# SmartBank AI — Forex Transfer GraphQL Schema
+
+type ForexTransfer {
+  _id: ID!
+  transfer_id: String
+  user_id: String!
+  amount: Float!
+  from_currency: String!
+  to_currency: String!
+  exchange_rate: Float!
+  converted_amount: Float
+  status: String
+  transferred_at: String
+  notes: String
+  createdAt: String
+  updatedAt: String
+}
+
+type LiveRate {
+  from: String!
+  to: String!
+  rate: Float!
+}
+
+input InitiateTransferInput {
+  amount: Float!
+  from_currency: String!
+  to_currency: String!
+  exchange_rate: Float!
+  notes: String
+}
+
+type Query {
+  getMyTransfers: [ForexTransfer]
+  getTransfersByStatus(status: String!): [ForexTransfer]
+  getLiveRate(from_currency: String!, to_currency: String!): LiveRate!
+  getAllTransfers: [ForexTransfer]
+}
+
+type Mutation {
+  initiateTransfer(input: InitiateTransferInput!): ForexTransfer!
+  cancelTransfer(id: ID!): ForexTransfer
+  updateTransferStatus(id: ID!, status: String!): ForexTransfer
+}

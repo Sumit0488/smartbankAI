@@ -1,0 +1,469 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SmartBankAI - Lambda Functions and IAM Role
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+  MongoDBUri:
+    Type: String
+    NoEcho: true
+  SesFromEmail:
+    Type: String
+    Default: noreply@smartbankai.com
+  CognitoUserPoolId:
+    Type: String
+  DeploymentBucket:
+    Type: String
+    Description: S3 bucket containing Lambda deployment packages
+  LambdaS3Key:
+    Type: String
+    Default: lambda/smartbankai-backend.zip
+  EventBusName:
+    Type: String
+    Default: SmartBankAI-Events
+  SnsTopicArn:
+    Type: String
+    Default: ''
+  S3KycBucket:
+    Type: String
+    Default: smartbankai-kyc-documents
+
+Resources:
+
+  # ─── IAM Role ───────────────────────────────────────────────────────────────
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'SmartBankAI-Lambda-Role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SmartBankAI-Lambda-Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ['ses:SendEmail', 'ses:SendRawEmail', 'ses:SendTemplatedEmail']
+                Resource: '*'
+              - Effect: Allow
+                Action: ['sns:Publish', 'sns:Subscribe', 'sns:ListSubscriptionsByTopic']
+                Resource: '*'
+              - Effect: Allow
+                Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket', 's3:HeadObject']
+                Resource:
+                  - !Sub 'arn:aws:s3:::smartbankai-*'
+                  - !Sub 'arn:aws:s3:::smartbankai-*/*'
+              - Effect: Allow
+                Action: ['events:PutEvents']
+                Resource: !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/${EventBusName}'
+              - Effect: Allow
+                Action: ['sqs:SendMessage', 'sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes']
+                Resource: !Sub 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:SmartBankAI-*'
+              - Effect: Allow
+                Action: ['cognito-idp:AdminGetUser', 'cognito-idp:AdminCreateUser', 'cognito-idp:AdminDeleteUser',
+                         'cognito-idp:AdminUpdateUserAttributes', 'cognito-idp:AdminEnableUser',
+                         'cognito-idp:AdminDisableUser', 'cognito-idp:ListUsers']
+                Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}'
+              - Effect: Allow
+                Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents']
+                Resource: 'arn:aws:logs:*:*:*'
+              - Effect: Allow
+                Action: ['secretsmanager:GetSecretValue']
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:smartbankai/*'
+
+  # ─── Common Environment ──────────────────────────────────────────────────────
+  LambdaCommonEnv: &common_env
+    MONGODB_URI: !Ref MongoDBUri
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+    SES_FROM_EMAIL: !Ref SesFromEmail
+    SNS_TOPIC_ARN: !Ref SnsTopicArn
+    EVENT_BUS_NAME: !Ref EventBusName
+    S3_KYC_BUCKET: !Ref S3KycBucket
+    NODE_ENV: !Ref Environment
+    LOG_LEVEL: !If [IsProd, 'info', 'debug']
+
+  # ─── CloudWatch Log Groups ──────────────────────────────────────────────────
+  UserHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/SmartBankAI-UserHandler-${Environment}'
+      RetentionInDays: 30
+
+  LoanHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/SmartBankAI-LoanHandler-${Environment}'
+      RetentionInDays: 30
+
+  InvestmentHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/SmartBankAI-InvestmentHandler-${Environment}'
+      RetentionInDays: 30
+
+  AuthHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/SmartBankAI-AuthHandler-${Environment}'
+      RetentionInDays: 30
+
+  ExpenseHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/SmartBankAI-ExpenseHandler-${Environment}'
+      RetentionInDays: 30
+
+  CardHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/SmartBankAI-CardHandler-${Environment}'
+      RetentionInDays: 30
+
+  ForexHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/SmartBankAI-ForexHandler-${Environment}'
+      RetentionInDays: 30
+
+  BankHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/SmartBankAI-BankHandler-${Environment}'
+      RetentionInDays: 30
+
+  # ─── Lambda Functions ────────────────────────────────────────────────────────
+  UserHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: UserHandlerLogGroup
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-UserHandler-${Environment}'
+      Runtime: nodejs18.x
+      Handler: functions/user/index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucket
+        S3Key: !Ref LambdaS3Key
+      Timeout: 30
+      MemorySize: 512
+      ReservedConcurrentExecutions: 100
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          SES_FROM_EMAIL: !Ref SesFromEmail
+          SNS_TOPIC_ARN: !Ref SnsTopicArn
+          EVENT_BUS_NAME: !Ref EventBusName
+          S3_KYC_BUCKET: !Ref S3KycBucket
+          NODE_ENV: !Ref Environment
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Module
+          Value: user
+
+  LoanHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: LoanHandlerLogGroup
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-LoanHandler-${Environment}'
+      Runtime: nodejs18.x
+      Handler: functions/loan/index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucket
+        S3Key: !Ref LambdaS3Key
+      Timeout: 30
+      MemorySize: 512
+      ReservedConcurrentExecutions: 50
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          SES_FROM_EMAIL: !Ref SesFromEmail
+          SNS_TOPIC_ARN: !Ref SnsTopicArn
+          EVENT_BUS_NAME: !Ref EventBusName
+          S3_KYC_BUCKET: !Ref S3KycBucket
+          NODE_ENV: !Ref Environment
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Module
+          Value: loan
+
+  InvestmentHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: InvestmentHandlerLogGroup
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-InvestmentHandler-${Environment}'
+      Runtime: nodejs18.x
+      Handler: functions/investment/index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucket
+        S3Key: !Ref LambdaS3Key
+      Timeout: 30
+      MemorySize: 512
+      ReservedConcurrentExecutions: 50
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          SES_FROM_EMAIL: !Ref SesFromEmail
+          SNS_TOPIC_ARN: !Ref SnsTopicArn
+          EVENT_BUS_NAME: !Ref EventBusName
+          S3_KYC_BUCKET: !Ref S3KycBucket
+          NODE_ENV: !Ref Environment
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Module
+          Value: investment
+
+  AuthHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: AuthHandlerLogGroup
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-AuthHandler-${Environment}'
+      Runtime: nodejs18.x
+      Handler: functions/auth/index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucket
+        S3Key: !Ref LambdaS3Key
+      Timeout: 30
+      MemorySize: 256
+      ReservedConcurrentExecutions: 50
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          NODE_ENV: !Ref Environment
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+          JWT_SECRET: !Sub '{{resolve:secretsmanager:smartbankai/${Environment}/jwt-secret}}'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Module
+          Value: auth
+
+  ExpenseHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ExpenseHandlerLogGroup
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-ExpenseHandler-${Environment}'
+      Runtime: nodejs18.x
+      Handler: functions/expense/index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucket
+        S3Key: !Ref LambdaS3Key
+      Timeout: 30
+      MemorySize: 512
+      ReservedConcurrentExecutions: 50
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          NODE_ENV: !Ref Environment
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Module
+          Value: expense
+
+  CardHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: CardHandlerLogGroup
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-CardHandler-${Environment}'
+      Runtime: nodejs18.x
+      Handler: functions/card/index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucket
+        S3Key: !Ref LambdaS3Key
+      Timeout: 30
+      MemorySize: 512
+      ReservedConcurrentExecutions: 50
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          NODE_ENV: !Ref Environment
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Module
+          Value: card
+
+  ForexHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ForexHandlerLogGroup
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-ForexHandler-${Environment}'
+      Runtime: nodejs18.x
+      Handler: functions/forex/index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucket
+        S3Key: !Ref LambdaS3Key
+      Timeout: 30
+      MemorySize: 512
+      ReservedConcurrentExecutions: 50
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          NODE_ENV: !Ref Environment
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Module
+          Value: forex
+
+  BankHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: BankHandlerLogGroup
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-BankHandler-${Environment}'
+      Runtime: nodejs18.x
+      Handler: functions/bank/index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref DeploymentBucket
+        S3Key: !Ref LambdaS3Key
+      Timeout: 30
+      MemorySize: 256
+      ReservedConcurrentExecutions: 30
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          NODE_ENV: !Ref Environment
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Module
+          Value: bank
+
+  # ─── Lambda Aliases (Blue/Green) ─────────────────────────────────────────────
+  UserHandlerLiveAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      Name: live
+      FunctionName: !Ref UserHandlerFunction
+      FunctionVersion: '$LATEST'
+
+  LoanHandlerLiveAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      Name: live
+      FunctionName: !Ref LoanHandlerFunction
+      FunctionVersion: '$LATEST'
+
+  InvestmentHandlerLiveAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      Name: live
+      FunctionName: !Ref InvestmentHandlerFunction
+      FunctionVersion: '$LATEST'
+
+  AuthHandlerLiveAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      Name: live
+      FunctionName: !Ref AuthHandlerFunction
+      FunctionVersion: '$LATEST'
+
+  ExpenseHandlerLiveAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      Name: live
+      FunctionName: !Ref ExpenseHandlerFunction
+      FunctionVersion: '$LATEST'
+
+  CardHandlerLiveAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      Name: live
+      FunctionName: !Ref CardHandlerFunction
+      FunctionVersion: '$LATEST'
+
+  ForexHandlerLiveAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      Name: live
+      FunctionName: !Ref ForexHandlerFunction
+      FunctionVersion: '$LATEST'
+
+  BankHandlerLiveAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      Name: live
+      FunctionName: !Ref BankHandlerFunction
+      FunctionVersion: '$LATEST'
+
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
+
+Outputs:
+  UserHandlerArn:
+    Value: !GetAtt UserHandlerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-UserHandlerArn'
+
+  LoanHandlerArn:
+    Value: !GetAtt LoanHandlerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-LoanHandlerArn'
+
+  InvestmentHandlerArn:
+    Value: !GetAtt InvestmentHandlerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-InvestmentHandlerArn'
+
+  AuthHandlerArn:
+    Value: !GetAtt AuthHandlerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-AuthHandlerArn'
+
+  ExpenseHandlerArn:
+    Value: !GetAtt ExpenseHandlerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ExpenseHandlerArn'
+
+  CardHandlerArn:
+    Value: !GetAtt CardHandlerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CardHandlerArn'
+
+  ForexHandlerArn:
+    Value: !GetAtt ForexHandlerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ForexHandlerArn'
+
+  BankHandlerArn:
+    Value: !GetAtt BankHandlerFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-BankHandlerArn'
+
+  LambdaRoleArn:
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaRoleArn'

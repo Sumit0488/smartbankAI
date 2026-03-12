@@ -1,0 +1,125 @@
+# bank.schema.yaml
+# SmartBank AI — Bank Management Entity Schema
+# Run: node codegen/generator.js codegen/schemas/bank.schema.yaml
+# NOTE: Banks are ADMIN-managed global data. All users can READ.
+
+entity: Bank
+module: bank-management
+collection: banks
+
+fields:
+  - name: bank_id
+    type: String
+    external_id: true
+    unique: true
+    description: External unique identifier (auto-generated UUID)
+
+  - name: bank_name
+    type: String
+    required: true
+    unique: true
+    index: true
+    searchable: true
+    description: Official bank name
+
+  - name: minimum_balance
+    type: Number
+    min: 0
+    default: 0
+    description: Minimum account balance required in INR
+
+  - name: interest_rate
+    type: Number
+    min: 0
+    max: 20
+    description: Savings account interest rate (% p.a.)
+
+  - name: forex_fee
+    type: Number
+    min: 0
+    description: Forex transaction fee (%)
+
+  - name: account_types
+    type: String
+    description: Comma-separated account types (e.g. Savings,Current,Salary)
+
+  - name: features
+    type: String
+    description: Comma-separated feature list (e.g. Zero Balance, Net Banking, UPI)
+
+  - name: rating
+    type: Number
+    min: 0
+    max: 5
+    description: Bank rating out of 5
+
+  - name: createdAt
+    type: Date
+    auto: true
+
+  - name: updatedAt
+    type: Date
+    auto: true
+
+operations:
+  queries:
+    - name: getAllBanks
+      auth: PUBLIC
+      description: List all banks (public — no auth required)
+
+    - name: getBankById
+      auth: PUBLIC
+      description: Get a specific bank by ID
+
+    - name: searchBanks
+      auth: PUBLIC
+      description: Search banks by name
+      args:
+        - name: query
+          type: String
+          required: true
+
+    - name: compareBanks
+      auth: PUBLIC
+      description: Compare two or more banks side by side
+      args:
+        - name: ids
+          type: "[ID]"
+          required: true
+
+  mutations:
+    - name: createBank
+      auth: ADMIN
+      description: Admin — add a new bank
+      args:
+        - name: input
+          type: CreateBankInput
+
+    - name: updateBank
+      auth: ADMIN
+      description: Admin — update bank details
+      args:
+        - name: id
+          type: ID
+          required: true
+        - name: input
+          type: UpdateBankInput
+
+    - name: deleteBank
+      auth: ADMIN
+      description: Admin — remove a bank
+      args:
+        - name: id
+          type: ID
+          required: true
+
+events: []
+
+permissions:
+  ADMIN:
+    - create
+    - read
+    - update
+    - delete
+  USER:
+    - read

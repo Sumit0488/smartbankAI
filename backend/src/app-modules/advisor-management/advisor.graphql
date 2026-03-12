@@ -1,0 +1,36 @@
+# SmartBank AI — Advisor Module GraphQL Schema
+# Pure calculation and AI-rule-based endpoints, no DB required.
+
+type SendMoneyCalcResult {
+  fee: Float!
+  total: Float!
+  breakdown: String!
+}
+
+type InvestmentAdvice {
+  recommendation: String!
+  riskLevel: String!
+  suggestedFunds: String!
+  monthlySIP: Float!
+}
+
+type ForexAdvice {
+  bestTime: String!
+  tip: String!
+  estimatedRate: Float
+}
+
+type MinBalanceRisk {
+  bankName: String!
+  minimumBalance: Float!
+  currentBalance: Float!
+  atRisk: Boolean!
+  penalty: String!
+}
+
+type Query {
+  calculateSendMoney(amount: Float!, from_currency: String!, to_currency: String!): SendMoneyCalcResult!
+  getInvestmentAdvice(profileType: String!, salary: Float!): InvestmentAdvice!
+  getForexAdvice(from_currency: String!, to_currency: String!): ForexAdvice!
+  checkMinBalanceRisk(bankName: String!, currentBalance: Float!): MinBalanceRisk!
+}

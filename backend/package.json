@@ -1,0 +1,73 @@
+{
+  "name": "smartbankai-backend",
+  "version": "2.0.0",
+  "description": "SmartBankAI Production Backend — AWS Serverless (Lambda + AppSync + Cognito + MongoDB)",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node scripts/kill-port.js && nodemon src/server.js",
+    "generate": "node codegen/generator.js",
+    "merge-graphql": "node scripts/mergeGraphQL.js",
+    "build": "npm ci --omit=dev && mkdir -p dist && zip -r dist/smartbankai-backend.zip core/ functions/ graphql/ services/ node_modules/ -x '**/*.test.js' -x '**/node_modules/.bin/*'",
+    "deploy": "bash scripts/deployment/deploy.sh",
+    "deploy:dev": "bash scripts/deployment/deploy.sh dev",
+    "deploy:staging": "bash scripts/deployment/deploy.sh staging",
+    "deploy:prod": "bash scripts/deployment/deploy.sh prod",
+    "rollback": "bash scripts/deployment/rollback.sh",
+    "validate:schema": "node scripts/validateSchema.js",
+    "test:db": "node scripts/testDbConnection.js",
+    "precondition": "bash scripts/precondition-check/check.sh",
+    "test": "jest --forceExit --detectOpenHandles --passWithNoTests",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage --passWithNoTests --forceExit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.600.0",
+    "@aws-sdk/client-eventbridge": "^3.600.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/client-ses": "^3.600.0",
+    "@aws-sdk/client-sns": "^3.600.0",
+    "@aws-sdk/client-sqs": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "@graphql-tools/load-files": "^7.0.1",
+    "@graphql-tools/merge": "^9.1.7",
+    "@graphql-tools/schema": "^10.0.31",
+    "apollo-server-express": "^3.13.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "glob": "^10.5.0",
+    "graphql": "^16.8.1",
+    "graphql-scalars": "^1.25.0",
+    "helmet": "^8.1.0",
+    "joi": "^17.12.3",
+    "js-yaml": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.2.4",
+    "nodemailer": "^6.9.13",
+    "uuid": "^10.0.0",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^9.2.0",
+    "nodemon": "^3.1.0",
+    "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "core/**/*.js",
+      "functions/**/*.js",
+      "graphql/resolvers/**/*.js",
+      "services/**/*.js"
+    ]
+  }
+}

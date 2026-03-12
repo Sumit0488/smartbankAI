@@ -1,0 +1,167 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SmartBankAI - EventBridge Custom Bus, Rules, and Targets
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+  UserHandlerArn:
+    Type: String
+  LoanHandlerArn:
+    Type: String
+  InvestmentHandlerArn:
+    Type: String
+  NotificationsTopicArn:
+    Type: String
+
+Resources:
+
+  # ─── Custom Event Bus ─────────────────────────────────────────────────────────
+  SmartBankEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub 'SmartBankAI-Events-${Environment}'
+
+  # ─── Event Archive ────────────────────────────────────────────────────────────
+  SmartBankEventArchive:
+    Type: AWS::Events::Archive
+    Properties:
+      ArchiveName: !Sub 'SmartBankAI-Archive-${Environment}'
+      SourceArn: !GetAtt SmartBankEventBus.Arn
+      Description: Archive all SmartBankAI events for replay and audit
+      RetentionDays: 90
+
+  # ─── Lambda Invocation Permission: EventBridge → User Handler ────────────────
+  UserHandlerEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UserHandlerArn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${SmartBankEventBus.Name}/*'
+
+  LoanHandlerEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LoanHandlerArn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${SmartBankEventBus.Name}/*'
+
+  InvestmentHandlerEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref InvestmentHandlerArn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${SmartBankEventBus.Name}/*'
+
+  # ─── EventBridge IAM Role (for publishing to SNS) ─────────────────────────────
+  EventBridgeToSNSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'SmartBankAI-EventBridge-SNS-Role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: events.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PublishToSNS
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref NotificationsTopicArn
+
+  # ─── Rule: UserCreated → User Lambda ─────────────────────────────────────────
+  UserCreatedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'SmartBankAI-UserCreated-${Environment}'
+      EventBusName: !GetAtt SmartBankEventBus.Arn
+      Description: Triggered when a new user is created
+      State: ENABLED
+      EventPattern:
+        source:
+          - smartbankai.users
+        detail-type:
+          - UserCreated
+      Targets:
+        - Id: UserLambdaTarget
+          Arn: !Ref UserHandlerArn
+
+  # ─── Rule: LoanApproved → Loan Lambda + SNS ──────────────────────────────────
+  LoanApprovedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'SmartBankAI-LoanApproved-${Environment}'
+      EventBusName: !GetAtt SmartBankEventBus.Arn
+      Description: Triggered when a loan is approved — notifies user via Lambda and SNS
+      State: ENABLED
+      EventPattern:
+        source:
+          - smartbankai.loans
+        detail-type:
+          - LoanApproved
+      Targets:
+        - Id: LoanLambdaTarget
+          Arn: !Ref LoanHandlerArn
+        - Id: SNSNotificationTarget
+          Arn: !Ref NotificationsTopicArn
+          RoleArn: !GetAtt EventBridgeToSNSRole.Arn
+          InputTransformer:
+            InputPathsMap:
+              loanId: '$.detail.loanId'
+              userId: '$.detail.userId'
+              amount: '$.detail.loanAmount'
+            InputTemplate: |
+              "SmartBankAI: Loan <loanId> for user <userId> has been APPROVED. Amount: <amount>"
+
+  # ─── Rule: LoanRejected → Loan Lambda ────────────────────────────────────────
+  LoanRejectedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'SmartBankAI-LoanRejected-${Environment}'
+      EventBusName: !GetAtt SmartBankEventBus.Arn
+      Description: Triggered when a loan is rejected
+      State: ENABLED
+      EventPattern:
+        source:
+          - smartbankai.loans
+        detail-type:
+          - LoanRejected
+      Targets:
+        - Id: LoanLambdaTarget
+          Arn: !Ref LoanHandlerArn
+
+  # ─── Rule: InvestmentCreated → Investment Lambda ──────────────────────────────
+  InvestmentCreatedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'SmartBankAI-InvestmentCreated-${Environment}'
+      EventBusName: !GetAtt SmartBankEventBus.Arn
+      Description: Triggered when a new investment is recorded
+      State: ENABLED
+      EventPattern:
+        source:
+          - smartbankai.investments
+        detail-type:
+          - InvestmentCreated
+      Targets:
+        - Id: InvestmentLambdaTarget
+          Arn: !Ref InvestmentHandlerArn
+
+Outputs:
+  EventBusName:
+    Value: !GetAtt SmartBankEventBus.Name
+    Export:
+      Name: !Sub '${AWS::StackName}-EventBusName'
+
+  EventBusArn:
+    Value: !GetAtt SmartBankEventBus.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EventBusArn'

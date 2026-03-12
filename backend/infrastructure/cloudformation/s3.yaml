@@ -1,0 +1,183 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SmartBankAI - S3 Buckets for KYC, Loan Documents, and User Files
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+  LambdaRoleArn:
+    Type: String
+
+Resources:
+
+  # ─── KYC Documents Bucket ────────────────────────────────────────────────────
+  KYCDocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'smartbankai-kyc-documents-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: MoveToIA
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 90
+                StorageClass: STANDARD_IA
+              - TransitionInDays: 365
+                StorageClass: GLACIER
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 90
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST]
+            AllowedOrigins: ['*']
+            ExposedHeaders: [ETag]
+            MaxAge: 3000
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: KYC
+
+  KYCBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref KYCDocumentsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowLambdaAccess
+            Effect: Allow
+            Principal:
+              AWS: !Ref LambdaRoleArn
+            Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:HeadObject']
+            Resource: !Sub '${KYCDocumentsBucket.Arn}/*'
+          - Sid: DenyHTTP
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt KYCDocumentsBucket.Arn
+              - !Sub '${KYCDocumentsBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+
+  # ─── Loan Documents Bucket ───────────────────────────────────────────────────
+  LoanDocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'smartbankai-loan-documents-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: MoveToIA
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 90
+                StorageClass: STANDARD_IA
+              - TransitionInDays: 365
+                StorageClass: GLACIER
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: LoanDocs
+
+  LoanDocsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LoanDocumentsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowLambdaAccess
+            Effect: Allow
+            Principal:
+              AWS: !Ref LambdaRoleArn
+            Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:HeadObject']
+            Resource: !Sub '${LoanDocumentsBucket.Arn}/*'
+          - Sid: DenyHTTP
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt LoanDocumentsBucket.Arn
+              - !Sub '${LoanDocumentsBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+
+  # ─── User Files Bucket ───────────────────────────────────────────────────────
+  UserFilesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'smartbankai-user-files-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: MoveToIA
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 180
+                StorageClass: STANDARD_IA
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST, DELETE]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: UserFiles
+
+Outputs:
+  KYCBucketName:
+    Value: !Ref KYCDocumentsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-KYCBucket'
+
+  LoanDocsBucketName:
+    Value: !Ref LoanDocumentsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-LoanDocsBucket'
+
+  UserFilesBucketName:
+    Value: !Ref UserFilesBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-UserFilesBucket'

@@ -1,0 +1,41 @@
+# SmartBank AI — Expense Management GraphQL Schema
+
+type Expense {
+  _id: ID!
+  expense_id: String
+  user_id: String!
+  category: String
+  amount: Float!
+  month: String
+  description: String
+  createdAt: String
+  updatedAt: String
+}
+
+input AddExpenseInput {
+  category: String
+  amount: Float!
+  month: String
+  description: String
+}
+
+input UpdateExpenseInput {
+  category: String
+  amount: Float
+  month: String
+  description: String
+}
+
+type Query {
+  getMyExpenses: [Expense]
+  getExpensesByMonth(month: String!): [Expense]
+  getExpensesByCategory(category: String!): [Expense]
+  getTransactionHistory(month: String): [Expense]
+  getAllExpenses: [Expense]
+}
+
+type Mutation {
+  addExpense(input: AddExpenseInput!): Expense!
+  updateExpense(id: ID!, input: UpdateExpenseInput!): Expense
+  deleteExpense(id: ID!): DeleteResult!
+}

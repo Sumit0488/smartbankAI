@@ -1,0 +1,58 @@
+enum CardType {
+  CREDIT
+  DEBIT
+  PREPAID
+}
+
+type Card {
+  id: ID!
+  cardId: ID!
+  cardName: String!
+  cardType: CardType!
+  issuer: String!
+  annualFee: Float!
+  rewardsRate: Float!
+  features: [String!]!
+  minCreditScore: Int
+  minIncome: Float
+  applyUrl: String
+  createdAt: DateTime
+  updatedAt: DateTime
+}
+
+type SavedCard {
+  id: ID!
+  savedCardId: ID!
+  userId: ID!
+  cardId: ID!
+  card: Card
+  savedAt: DateTime
+}
+
+type CardRecommendation {
+  card: Card!
+  matchScore: Float!
+  reasons: [String!]!
+}
+
+type CardListResponse {
+  items: [Card!]!
+  total: Int!
+}
+
+type SavedCardListResponse {
+  items: [SavedCard!]!
+  total: Int!
+}
+
+extend type Query {
+  recommendCards(salary: Float, creditScore: Int, cardType: CardType): [CardRecommendation!]!
+  listCards(cardType: CardType): CardListResponse!
+  listSavedCards: SavedCardListResponse!
+  getCard(cardId: ID!): Card
+}
+
+extend type Mutation {
+  saveCard(cardId: ID!): SavedCard!
+  unsaveCard(cardId: ID!): DeleteResult!
+}

@@ -1,0 +1,13 @@
+# SmartBank AI — Shared GraphQL Types
+# Single source of truth for types used across multiple modules.
+# Do NOT redefine these in any module-level .graphql file.
+
+type DeleteResult {
+  success: Boolean!
+  message: String!
+}
+
+type SeedResult {
+  seeded: Int!
+  message: String!
+}

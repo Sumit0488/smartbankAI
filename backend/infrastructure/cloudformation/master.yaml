@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SmartBankAI - Master Stack (orchestrates all nested stacks)
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+    Description: Deployment environment
+
+  MongoDBUri:
+    Type: String
+    NoEcho: true
+    Description: MongoDB Atlas connection string
+
+  SesFromEmail:
+    Type: String
+    Default: noreply@smartbankai.com
+    Description: Verified SES sender email address
+
+  DeploymentBucket:
+    Type: String
+    Description: S3 bucket containing CloudFormation nested templates and Lambda ZIP
+
+  LambdaS3Key:
+    Type: String
+    Default: lambda/smartbankai-backend.zip
+    Description: S3 key for the Lambda deployment package
+
+  AppName:
+    Type: String
+    Default: SmartBankAI
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: Deployment }
+        Parameters: [Environment, AppName, DeploymentBucket, LambdaS3Key]
+      - Label: { default: Database }
+        Parameters: [MongoDBUri]
+      - Label: { default: Email }
+        Parameters: [SesFromEmail]
+    ParameterLabels:
+      Environment:     { default: 'Environment (dev/staging/prod)' }
+      MongoDBUri:      { default: 'MongoDB Connection URI' }
+      SesFromEmail:    { default: 'SES Sender Email' }
+      DeploymentBucket:{ default: 'S3 Deployment Bucket' }
+
+Resources:
+
+  # ─── 1. Cognito Stack ─────────────────────────────────────────────────────────
+  CognitoStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${DeploymentBucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/cognito.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        AppName: !Ref AppName
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── 2. SNS/SQS Stack ────────────────────────────────────────────────────────
+  SnsSqsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${DeploymentBucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/ses-sns.yaml'
+      Parameters:
+        Environment: !Ref Environment
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── 3. Lambda Stack ─────────────────────────────────────────────────────────
+  LambdaStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - CognitoStack
+      - SnsSqsStack
+    Properties:
+      TemplateURL: !Sub 'https://${DeploymentBucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/lambda.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        MongoDBUri: !Ref MongoDBUri
+        SesFromEmail: !Ref SesFromEmail
+        CognitoUserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
+        DeploymentBucket: !Ref DeploymentBucket
+        LambdaS3Key: !Ref LambdaS3Key
+        EventBusName: !Sub 'SmartBankAI-Events-${Environment}'
+        SnsTopicArn: !GetAtt SnsSqsStack.Outputs.NotificationsTopicArn
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── 4. S3 Stack ─────────────────────────────────────────────────────────────
+  S3Stack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: LambdaStack
+    Properties:
+      TemplateURL: !Sub 'https://${DeploymentBucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/s3.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        LambdaRoleArn: !GetAtt LambdaStack.Outputs.LambdaRoleArn
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── 5. EventBridge Stack ─────────────────────────────────────────────────────
+  EventBridgeStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: LambdaStack
+    Properties:
+      TemplateURL: !Sub 'https://${DeploymentBucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/eventbridge.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        UserHandlerArn: !GetAtt LambdaStack.Outputs.UserHandlerArn
+        LoanHandlerArn: !GetAtt LambdaStack.Outputs.LoanHandlerArn
+        InvestmentHandlerArn: !GetAtt LambdaStack.Outputs.InvestmentHandlerArn
+        NotificationsTopicArn: !GetAtt SnsSqsStack.Outputs.NotificationsTopicArn
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── 6. AppSync Stack ────────────────────────────────────────────────────────
+  AppSyncStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: LambdaStack
+    Properties:
+      TemplateURL: !Sub 'https://${DeploymentBucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/appsync.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        CognitoUserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
+        CognitoUserPoolArn: !GetAtt CognitoStack.Outputs.UserPoolArn
+        UserHandlerArn: !GetAtt LambdaStack.Outputs.UserHandlerArn
+        LoanHandlerArn: !GetAtt LambdaStack.Outputs.LoanHandlerArn
+        InvestmentHandlerArn: !GetAtt LambdaStack.Outputs.InvestmentHandlerArn
+        AuthHandlerArn: !GetAtt LambdaStack.Outputs.AuthHandlerArn
+        ExpenseHandlerArn: !GetAtt LambdaStack.Outputs.ExpenseHandlerArn
+        CardHandlerArn: !GetAtt LambdaStack.Outputs.CardHandlerArn
+        ForexHandlerArn: !GetAtt LambdaStack.Outputs.ForexHandlerArn
+        BankHandlerArn: !GetAtt LambdaStack.Outputs.BankHandlerArn
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  GraphQLApiUrl:
+    Description: AppSync GraphQL endpoint URL
+    Value: !GetAtt AppSyncStack.Outputs.GraphQLApiUrl
+
+  GraphQLApiKey:
+    Description: AppSync API Key (for public access)
+    Value: !GetAtt AppSyncStack.Outputs.GraphQLApiKey
+
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value: !GetAtt CognitoStack.Outputs.UserPoolId
+
+  CognitoUserPoolClientId:
+    Description: Cognito App Client ID
+    Value: !GetAtt CognitoStack.Outputs.UserPoolClientId
+
+  NotificationsTopicArn:
+    Description: SNS Notifications Topic ARN
+    Value: !GetAtt SnsSqsStack.Outputs.NotificationsTopicArn
+
+  EventBusName:
+    Description: EventBridge Custom Bus Name
+    Value: !GetAtt EventBridgeStack.Outputs.EventBusName
+
+  KYCBucket:
+    Description: S3 bucket for KYC documents
+    Value: !GetAtt S3Stack.Outputs.KYCBucketName

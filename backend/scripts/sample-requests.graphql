@@ -1,0 +1,453 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SmartBankAI — Sample GraphQL Requests
+# Use in: Apollo Sandbox  |  Thunder Client  |  Postman  |  Insomnia
+#
+# BASE URL:  http://localhost:4000/graphql
+# METHOD:    POST
+# HEADERS:   Content-Type: application/json
+#            Authorization: Bearer <token>   (for protected routes)
+#
+# HOW TO GET A TOKEN:
+#   Option A — Login:   run loginUser mutation below
+#   Option B — Script:  node scripts/generate-test-token.js
+#   Option C — Admin:   node scripts/generate-test-token.js admin
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ───────────────────────────────────────────────────────────────────────────────
+# AUTH — No token required
+# ───────────────────────────────────────────────────────────────────────────────
+
+# 1. Register a new user (returns token immediately)
+mutation RegisterUser {
+  registerUser(input: {
+    name: "John Doe"
+    email: "john@example.com"
+    password: "Password1!"
+    phone: "+919876543210"
+    profileType: WORKING_PROFESSIONAL
+    salary: 75000
+  }) {
+    token
+    user {
+      id
+      userId
+      name
+      email
+      role
+      status
+      profileType
+      salary
+      createdAt
+    }
+  }
+}
+
+# 2. Login with existing credentials
+mutation LoginUser {
+  loginUser(
+    email: "john@example.com"
+    password: "Password1!"
+  ) {
+    token
+    user {
+      id
+      userId
+      name
+      email
+      role
+      status
+    }
+  }
+}
+
+
+# ───────────────────────────────────────────────────────────────────────────────
+# USERS — Requires Authorization: Bearer <token>
+# ───────────────────────────────────────────────────────────────────────────────
+
+# 3. Get own profile  (replace <userId> with your actual userId from login)
+query GetUser {
+  getUser(userId: "<userId>") {
+    id
+    userId
+    name
+    email
+    role
+    status
+    salary
+    profileType
+    isEmailVerified
+    createdAt
+    updatedAt
+  }
+}
+
+# 4. Update own profile
+mutation UpdateUser {
+  updateUser(
+    userId: "<userId>"
+    input: {
+      name: "John Updated"
+      salary: 90000
+      profileType: WORKING_PROFESSIONAL
+    }
+  ) {
+    id
+    userId
+    name
+    salary
+    updatedAt
+  }
+}
+
+# 5. Soft-delete own account
+mutation SoftDeleteUser {
+  softDeleteUser(userId: "<userId>") {
+    id
+    userId
+    status
+  }
+}
+
+
+# ───────────────────────────────────────────────────────────────────────────────
+# LOANS — Requires Authorization: Bearer <token>
+# ───────────────────────────────────────────────────────────────────────────────
+
+# 6. Apply for a loan
+mutation ApplyLoan {
+  applyLoan(input: {
+    loanType: PERSONAL
+    loanAmount: 500000
+    interestRate: 10.5
+    tenure: 60
+    bankName: "HDFC Bank"
+    notes: "Need funds for home renovation"
+  }) {
+    id
+    loanId
+    loanType
+    loanAmount
+    interestRate
+    tenure
+    emi
+    totalPayable
+    totalInterest
+    status
+    bankName
+    appliedAt
+  }
+}
+
+# 7. List own loans
+query ListLoans {
+  listLoans(page: 1, limit: 10) {
+    items {
+      id
+      loanId
+      loanType
+      loanAmount
+      emi
+      status
+      bankName
+      appliedAt
+    }
+    total
+    page
+    totalPages
+    hasNextPage
+  }
+}
+
+# 8. Get a specific loan  (replace <loanId> with actual loanId)
+query GetLoan {
+  getLoan(loanId: "<loanId>") {
+    id
+    loanId
+    loanType
+    loanAmount
+    emi
+    totalPayable
+    totalInterest
+    status
+    bankName
+    notes
+  }
+}
+
+# 9. Update a PENDING loan
+mutation UpdateLoan {
+  updateLoan(
+    loanId: "<loanId>"
+    input: {
+      loanAmount: 600000
+      tenure: 72
+      notes: "Updated loan amount"
+    }
+  ) {
+    id
+    loanId
+    loanAmount
+    tenure
+    emi
+    totalPayable
+    status
+  }
+}
+
+# 10. Close a DISBURSED loan
+mutation CloseLoan {
+  closeLoan(loanId: "<loanId>") {
+    id
+    loanId
+    status
+  }
+}
+
+
+# ───────────────────────────────────────────────────────────────────────────────
+# INVESTMENTS — Requires Authorization: Bearer <token>
+# ───────────────────────────────────────────────────────────────────────────────
+
+# 11. Create an investment
+mutation CreateInvestment {
+  createInvestment(input: {
+    investmentType: MUTUAL_FUND
+    amount: 50000
+    expectedReturn: 12.5
+    currentValue: 52000
+    notes: "SIP in Large Cap Fund"
+  }) {
+    id
+    investmentId
+    investmentType
+    amount
+    currentValue
+    expectedReturn
+    gainLoss
+    gainLossPercent
+    status
+    investedAt
+  }
+}
+
+# 12. List own investments
+query ListInvestments {
+  listInvestments(page: 1, limit: 10) {
+    items {
+      id
+      investmentId
+      investmentType
+      amount
+      currentValue
+      gainLoss
+      gainLossPercent
+      status
+      investedAt
+    }
+    total
+    page
+    totalPages
+  }
+}
+
+# 13. Get portfolio summary  (replace <userId> with your userId)
+query GetPortfolioSummary {
+  getPortfolioSummary(userId: "<userId>") {
+    userId
+    totalInvested
+    totalCurrentValue
+    totalGainLoss
+    gainLossPercent
+    activeInvestments
+    closedInvestments
+    byType {
+      investmentType
+      count
+      totalInvested
+      totalCurrentValue
+    }
+  }
+}
+
+# 14. Update investment
+mutation UpdateInvestment {
+  updateInvestment(
+    investmentId: "<investmentId>"
+    input: {
+      currentValue: 55000
+      notes: "Updated market value"
+    }
+  ) {
+    id
+    investmentId
+    amount
+    currentValue
+    gainLoss
+    gainLossPercent
+    status
+  }
+}
+
+# 15. Close an investment
+mutation CloseInvestment {
+  closeInvestment(
+    investmentId: "<investmentId>"
+    finalValue: 58000
+  ) {
+    id
+    investmentId
+    status
+    currentValue
+    gainLoss
+    gainLossPercent
+  }
+}
+
+
+# ───────────────────────────────────────────────────────────────────────────────
+# ADMIN — Requires ADMIN token
+# Run: node scripts/generate-test-token.js admin
+# ───────────────────────────────────────────────────────────────────────────────
+
+# 16. List all users (admin)
+query AdminListUsers {
+  adminListUsers(page: 1, limit: 20) {
+    items {
+      id
+      userId
+      name
+      email
+      role
+      status
+      salary
+      profileType
+      createdAt
+    }
+    total
+    page
+    totalPages
+  }
+}
+
+# 17. Get admin dashboard stats
+query AdminGetStats {
+  adminGetStats {
+    totalUsers
+    activeUsers
+    totalLoans
+    pendingLoans
+    approvedLoans
+    totalInvestments
+    activeInvestments
+  }
+}
+
+# 18. Admin: approve a loan
+mutation ApproveLoan {
+  approveLoan(loanId: "<loanId>") {
+    id
+    loanId
+    status
+    loanType
+    loanAmount
+    emi
+  }
+}
+
+# 19. Admin: reject a loan
+mutation RejectLoan {
+  rejectLoan(
+    loanId: "<loanId>"
+    reason: "Income does not meet minimum requirements"
+  ) {
+    id
+    loanId
+    status
+    rejectionReason
+  }
+}
+
+# 20. Admin: disburse an approved loan
+mutation DisburseLoan {
+  disburseLoan(loanId: "<loanId>") {
+    id
+    loanId
+    status
+  }
+}
+
+# 21. Admin: update a user
+mutation AdminUpdateUser {
+  adminUpdateUser(
+    userId: "<userId>"
+    input: {
+      role: ADMIN
+      isEmailVerified: true
+      status: ACTIVE
+    }
+  ) {
+    id
+    userId
+    name
+    email
+    role
+    status
+    isEmailVerified
+  }
+}
+
+# 22. Admin: suspend a user
+mutation AdminSuspendUser {
+  adminSuspendUser(
+    userId: "<userId>"
+    reason: "Suspicious activity detected"
+  ) {
+    id
+    userId
+    status
+  }
+}
+
+# 23. Admin: reactivate a suspended user
+mutation AdminReactivateUser {
+  adminReactivateUser(userId: "<userId>") {
+    id
+    userId
+    status
+  }
+}
+
+# 24. Admin: hard-delete a user
+mutation AdminDeleteUser {
+  adminDeleteUser(userId: "<userId>") {
+    success
+    message
+  }
+}
+
+# 25. Admin: list users with filters
+query AdminListUsersFiltered {
+  adminListUsers(
+    page: 1
+    limit: 10
+    filter: {
+      role: USER
+      status: ACTIVE
+      profileType: WORKING_PROFESSIONAL
+    }
+    sort: { field: "createdAt", direction: DESC }
+  ) {
+    items {
+      userId
+      name
+      email
+      role
+      profileType
+      createdAt
+    }
+    total
+    totalPages
+  }
+}

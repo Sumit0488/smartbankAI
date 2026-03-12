@@ -1,0 +1,680 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SmartBankAI - AWS AppSync GraphQL API
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+  CognitoUserPoolId:
+    Type: String
+  CognitoUserPoolArn:
+    Type: String
+  UserHandlerArn:
+    Type: String
+  LoanHandlerArn:
+    Type: String
+  InvestmentHandlerArn:
+    Type: String
+  AuthHandlerArn:
+    Type: String
+  ExpenseHandlerArn:
+    Type: String
+  CardHandlerArn:
+    Type: String
+  ForexHandlerArn:
+    Type: String
+  BankHandlerArn:
+    Type: String
+
+Resources:
+
+  # ─── AppSync API ─────────────────────────────────────────────────────────────
+  SmartBankGraphQLApi:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      Name: !Sub 'SmartBankAI-API-${Environment}'
+      AuthenticationType: AMAZON_COGNITO_USER_POOLS
+      UserPoolConfig:
+        UserPoolId: !Ref CognitoUserPoolId
+        AwsRegion: !Ref AWS::Region
+        DefaultAction: ALLOW
+      AdditionalAuthenticationProviders:
+        - AuthenticationType: API_KEY
+      LogConfig:
+        CloudWatchLogsRoleArn: !GetAtt AppSyncLoggingRole.Arn
+        FieldLogLevel: ALL
+        ExcludeVerboseContent: false
+      XrayEnabled: true
+      Tags:
+        - TagKey: Environment
+          TagValue: !Ref Environment
+
+  # ─── API Key (for public/health queries) ─────────────────────────────────────
+  SmartBankApiKey:
+    Type: AWS::AppSync::ApiKey
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      Description: !Sub 'SmartBankAI API Key - ${Environment}'
+      Expires: !Select [0, [1893456000]]  # Update as needed
+
+  # ─── CloudWatch Logging Role ──────────────────────────────────────────────────
+  AppSyncLoggingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'SmartBankAI-AppSync-LogRole-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: appsync.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSAppSyncPushToCloudWatchLogs
+
+  # ─── Lambda DataSource Role ───────────────────────────────────────────────────
+  AppSyncLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'SmartBankAI-AppSync-LambdaRole-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: appsync.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource:
+                  - !Ref UserHandlerArn
+                  - !Sub '${UserHandlerArn}:*'
+                  - !Ref LoanHandlerArn
+                  - !Sub '${LoanHandlerArn}:*'
+                  - !Ref InvestmentHandlerArn
+                  - !Sub '${InvestmentHandlerArn}:*'
+                  - !Ref AuthHandlerArn
+                  - !Sub '${AuthHandlerArn}:*'
+                  - !Ref ExpenseHandlerArn
+                  - !Sub '${ExpenseHandlerArn}:*'
+                  - !Ref CardHandlerArn
+                  - !Sub '${CardHandlerArn}:*'
+                  - !Ref ForexHandlerArn
+                  - !Sub '${ForexHandlerArn}:*'
+                  - !Ref BankHandlerArn
+                  - !Sub '${BankHandlerArn}:*'
+
+  # ─── Lambda DataSources ───────────────────────────────────────────────────────
+  UserLambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      Name: UserLambdaDataSource
+      Type: AWS_LAMBDA
+      LambdaConfig:
+        LambdaFunctionArn: !Ref UserHandlerArn
+      ServiceRoleArn: !GetAtt AppSyncLambdaRole.Arn
+
+  LoanLambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      Name: LoanLambdaDataSource
+      Type: AWS_LAMBDA
+      LambdaConfig:
+        LambdaFunctionArn: !Ref LoanHandlerArn
+      ServiceRoleArn: !GetAtt AppSyncLambdaRole.Arn
+
+  InvestmentLambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      Name: InvestmentLambdaDataSource
+      Type: AWS_LAMBDA
+      LambdaConfig:
+        LambdaFunctionArn: !Ref InvestmentHandlerArn
+      ServiceRoleArn: !GetAtt AppSyncLambdaRole.Arn
+
+  AuthLambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      Name: AuthLambdaDataSource
+      Type: AWS_LAMBDA
+      LambdaConfig:
+        LambdaFunctionArn: !Ref AuthHandlerArn
+      ServiceRoleArn: !GetAtt AppSyncLambdaRole.Arn
+
+  ExpenseLambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      Name: ExpenseLambdaDataSource
+      Type: AWS_LAMBDA
+      LambdaConfig:
+        LambdaFunctionArn: !Ref ExpenseHandlerArn
+      ServiceRoleArn: !GetAtt AppSyncLambdaRole.Arn
+
+  CardLambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      Name: CardLambdaDataSource
+      Type: AWS_LAMBDA
+      LambdaConfig:
+        LambdaFunctionArn: !Ref CardHandlerArn
+      ServiceRoleArn: !GetAtt AppSyncLambdaRole.Arn
+
+  ForexLambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      Name: ForexLambdaDataSource
+      Type: AWS_LAMBDA
+      LambdaConfig:
+        LambdaFunctionArn: !Ref ForexHandlerArn
+      ServiceRoleArn: !GetAtt AppSyncLambdaRole.Arn
+
+  BankLambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      Name: BankLambdaDataSource
+      Type: AWS_LAMBDA
+      LambdaConfig:
+        LambdaFunctionArn: !Ref BankHandlerArn
+      ServiceRoleArn: !GetAtt AppSyncLambdaRole.Arn
+
+  # ─── Resolvers — User ─────────────────────────────────────────────────────────
+  GetUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getUser
+      DataSourceName: !GetAtt UserLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  ListUsersResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: listUsers
+      DataSourceName: !GetAtt UserLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  CreateUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: createUser
+      DataSourceName: !GetAtt UserLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  UpdateUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: updateUser
+      DataSourceName: !GetAtt UserLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  DeleteUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: deleteUser
+      DataSourceName: !GetAtt UserLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  SoftDeleteUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: softDeleteUser
+      DataSourceName: !GetAtt UserLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — Loan ─────────────────────────────────────────────────────────
+  GetLoanResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getLoan
+      DataSourceName: !GetAtt LoanLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  ListLoansResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: listLoans
+      DataSourceName: !GetAtt LoanLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  ApplyLoanResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: applyLoan
+      DataSourceName: !GetAtt LoanLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  ApproveLoanResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: approveLoan
+      DataSourceName: !GetAtt LoanLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  RejectLoanResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: rejectLoan
+      DataSourceName: !GetAtt LoanLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — Investment ───────────────────────────────────────────────────
+  GetInvestmentResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getInvestment
+      DataSourceName: !GetAtt InvestmentLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  ListInvestmentsResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: listInvestments
+      DataSourceName: !GetAtt InvestmentLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  CreateInvestmentResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: createInvestment
+      DataSourceName: !GetAtt InvestmentLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  UpdateInvestmentResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: updateInvestment
+      DataSourceName: !GetAtt InvestmentLambdaDataSource.Name
+      RequestMappingTemplate: |
+        {"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — User (new fields) ───────────────────────────────────────────
+  GetProfileResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getProfile
+      DataSourceName: !GetAtt UserLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  UpdateProfileResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: updateProfile
+      DataSourceName: !GetAtt UserLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — Auth (public, API_KEY) ──────────────────────────────────────
+  RegisterUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: registerUser
+      DataSourceName: !GetAtt AuthLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  LoginUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: loginUser
+      DataSourceName: !GetAtt AuthLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — Loan (new fields) ───────────────────────────────────────────
+  CancelLoanResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: cancelLoan
+      DataSourceName: !GetAtt LoanLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  DisburseLoanResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: disburseLoan
+      DataSourceName: !GetAtt LoanLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  CloseLoanResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: closeLoan
+      DataSourceName: !GetAtt LoanLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  UpdateLoanResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: updateLoan
+      DataSourceName: !GetAtt LoanLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — Investment (new fields) ──────────────────────────────────────
+  CloseInvestmentResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: closeInvestment
+      DataSourceName: !GetAtt InvestmentLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  GetPortfolioSummaryResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getPortfolioSummary
+      DataSourceName: !GetAtt InvestmentLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — Expense ─────────────────────────────────────────────────────
+  ListExpensesResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: listExpenses
+      DataSourceName: !GetAtt ExpenseLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  GetExpenseResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getExpense
+      DataSourceName: !GetAtt ExpenseLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  ExpenseSummaryResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: expenseSummary
+      DataSourceName: !GetAtt ExpenseLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  AddExpenseResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: addExpense
+      DataSourceName: !GetAtt ExpenseLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  UpdateExpenseResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: updateExpense
+      DataSourceName: !GetAtt ExpenseLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  DeleteExpenseResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: deleteExpense
+      DataSourceName: !GetAtt ExpenseLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — Card ─────────────────────────────────────────────────────────
+  ListCardsResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: listCards
+      DataSourceName: !GetAtt CardLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  GetCardResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getCard
+      DataSourceName: !GetAtt CardLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  RecommendCardsResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: recommendCards
+      DataSourceName: !GetAtt CardLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  ListSavedCardsResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: listSavedCards
+      DataSourceName: !GetAtt CardLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  SaveCardResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: saveCard
+      DataSourceName: !GetAtt CardLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  UnsaveCardResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: unsaveCard
+      DataSourceName: !GetAtt CardLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — Forex ────────────────────────────────────────────────────────
+  ListForexTransfersResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: listForexTransfers
+      DataSourceName: !GetAtt ForexLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  GetForexTransferResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getForexTransfer
+      DataSourceName: !GetAtt ForexLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  CreateForexTransferResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: createForexTransfer
+      DataSourceName: !GetAtt ForexLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  CancelForexTransferResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: cancelForexTransfer
+      DataSourceName: !GetAtt ForexLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolvers — Bank ─────────────────────────────────────────────────────────
+  ListBanksResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: listBanks
+      DataSourceName: !GetAtt BankLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  GetBankResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getBank
+      DataSourceName: !GetAtt BankLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  CompareBanksResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: compareBanks
+      DataSourceName: !GetAtt BankLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+  # ─── Resolver — HealthCheck (API_KEY, public) ─────────────────────────────────
+  HealthCheckResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: healthCheck
+      DataSourceName: !GetAtt UserLambdaDataSource.Name
+      RequestMappingTemplate: '{"version":"2018-05-29","operation":"Invoke","payload":{"arguments":$util.toJson($ctx.args),"identity":$util.toJson($ctx.identity),"info":$util.toJson($ctx.info)}}'
+      ResponseMappingTemplate: '$util.toJson($ctx.result)'
+
+Outputs:
+  GraphQLApiId:
+    Value: !GetAtt SmartBankGraphQLApi.ApiId
+    Export:
+      Name: !Sub '${AWS::StackName}-GraphQLApiId'
+
+  GraphQLApiUrl:
+    Value: !GetAtt SmartBankGraphQLApi.GraphQLUrl
+    Export:
+      Name: !Sub '${AWS::StackName}-GraphQLApiUrl'
+
+  GraphQLApiKey:
+    Value: !GetAtt SmartBankApiKey.ApiKey
+    Export:
+      Name: !Sub '${AWS::StackName}-GraphQLApiKey'
