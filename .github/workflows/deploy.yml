@@ -130,15 +130,22 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --query "Stacks[0].StackStatus" \
             --output text 2>/dev/null || echo "DOES_NOT_EXIST")
-          if [ "$STATUS" = "ROLLBACK_COMPLETE" ]; then
-            echo "Stack is in ROLLBACK_COMPLETE — deleting before redeploy..."
+          echo "Current stack status: $STATUS"
+          if [ "$STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STATUS" = "DELETE_FAILED" ] || [ "$STATUS" = "CREATE_FAILED" ]; then
+            echo "Stack is in $STATUS state — deleting before redeploy..."
             aws cloudformation delete-stack \
               --stack-name smartbankai-prod \
               --region ${{ secrets.AWS_REGION }}
+            echo "Waiting for stack deletion to complete (this may take 5-10 minutes)..."
             aws cloudformation wait stack-delete-complete \
               --stack-name smartbankai-prod \
-              --region ${{ secrets.AWS_REGION }}
-            echo "Stack deleted."
+              --region ${{ secrets.AWS_REGION }} || true
+            echo "Stack deletion complete."
+            sleep 10
+          elif [ "$STATUS" != "DOES_NOT_EXIST" ]; then
+            echo "Stack exists with status: $STATUS"
+          else
+            echo "Stack does not exist, will create new."
           fi
 
       - name: SAM Deploy
@@ -190,20 +197,4 @@ jobs:
           echo "  VITE_COGNITO_CLIENT_ID=$CLIENT_ID"
           echo "============================================================"
 
-      - name: Notify success
-        if: success()
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-          payload: '{"text":"SmartBankAI *prod* deployment succeeded. Commit: ${{ github.sha }}"}'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        continue-on-error: true
 
-      - name: Notify failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-          payload: '{"text":"SmartBankAI *prod* deployment FAILED. Commit: ${{ github.sha }}"}'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        continue-on-error: true
