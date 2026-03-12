@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "types-have-descriptions": "off",
+    "fields-have-descriptions": "off",
+    "enum-values-have-descriptions": "off",
+    "input-object-values-have-descriptions": "off",
+    "arguments-have-descriptions": "off",
+    "type-fields-sorted-alphabetically": "off",
+    "input-object-fields-sorted-alphabetically": "off",
+    "enum-values-sorted-alphabetically": "off"
+  }
+}
