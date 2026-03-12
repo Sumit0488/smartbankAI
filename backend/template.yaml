@@ -335,6 +335,7 @@ Resources:
         CardHandlerArn: !GetAtt CardHandler.Arn
         ForexHandlerArn: !GetAtt ForexHandler.Arn
         BankHandlerArn: !GetAtt BankHandler.Arn
+        DeploymentBucket: !Ref DeploymentBucket
 
 # ─────────────────────────────────────────────────────────────────────────────
 Outputs:
