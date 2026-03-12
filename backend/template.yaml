@@ -1,0 +1,348 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SmartBankAI - Full Backend (Lambda + Cognito + AppSync + SNS + S3 + EventBridge)
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+  MongoDBUri:
+    Type: String
+    NoEcho: true
+  DeploymentBucket:
+    Type: String
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 30
+    MemorySize: 512
+    Role: !GetAtt LambdaRole.Arn
+
+# ─────────────────────────────────────────────────────────────────────────────
+Resources:
+
+  # ── IAM Role ────────────────────────────────────────────────────────────────
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'SmartBankAI-Lambda-Role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SmartBankAI-Lambda-Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ['ses:SendEmail', 'ses:SendRawEmail', 'ses:SendTemplatedEmail']
+                Resource: '*'
+              - Effect: Allow
+                Action: ['sns:Publish', 'sns:Subscribe']
+                Resource: '*'
+              - Effect: Allow
+                Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:HeadObject', 's3:ListBucket']
+                Resource:
+                  - !Sub 'arn:aws:s3:::smartbankai-*'
+                  - !Sub 'arn:aws:s3:::smartbankai-*/*'
+              - Effect: Allow
+                Action: ['events:PutEvents']
+                Resource: '*'
+              - Effect: Allow
+                Action: ['sqs:SendMessage', 'sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes']
+                Resource: '*'
+              - Effect: Allow
+                Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents']
+                Resource: 'arn:aws:logs:*:*:*'
+              - Effect: Allow
+                Action: ['cognito-idp:AdminGetUser', 'cognito-idp:AdminCreateUser',
+                         'cognito-idp:AdminUpdateUserAttributes', 'cognito-idp:ListUsers']
+                Resource: '*'
+
+  # ── Cognito ──────────────────────────────────────────────────────────────────
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub 'SmartBankAI-UserPool-${Environment}'
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      MfaConfiguration: OPTIONAL
+      EnabledMfas: [SOFTWARE_TOKEN_MFA]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 7
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: phone_number
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+        - Name: role
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+          StringAttributeConstraints:
+            MinLength: '1'
+            MaxLength: '20'
+        - Name: profileType
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+          StringAttributeConstraints:
+            MinLength: '1'
+            MaxLength: '50'
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        InviteMessageTemplate:
+          EmailMessage: 'Welcome to SmartBankAI! Your username is {username} and your temporary password is {####}. Please login and change it.'
+          EmailSubject: 'Your SmartBankAI temporary password'
+          SMSMessage: 'Your SmartBankAI username is {username}, temp password: {####}'
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub 'SmartBankAI-WebClient-${Environment}'
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_CUSTOM_AUTH
+      PreventUserExistenceErrors: ENABLED
+      RefreshTokenValidity: 30
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub 'smartbankai-${Environment}-${AWS::AccountId}'
+      UserPoolId: !Ref CognitoUserPool
+
+  # ── SNS + SQS ────────────────────────────────────────────────────────────────
+  NotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'SmartBankAI-Notifications-${Environment}'
+
+  NotificationsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'SmartBankAI-Notifications-${Environment}'
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 86400
+
+  NotificationsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref NotificationsTopic
+      Protocol: sqs
+      Endpoint: !GetAtt NotificationsQueue.Arn
+
+  # ── EventBridge ──────────────────────────────────────────────────────────────
+  SmartBankEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub 'SmartBankAI-Events-${Environment}'
+
+  # ── S3 Buckets ───────────────────────────────────────────────────────────────
+  KYCBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'smartbankai-kyc-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  LoanDocsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'smartbankai-loans-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # ── Lambda Functions ─────────────────────────────────────────────────────────
+  UserHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-UserHandler-${Environment}'
+      Handler: functions/user/index.handler
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          SNS_TOPIC_ARN: !Ref NotificationsTopic
+          EVENT_BUS_NAME: !Ref SmartBankEventBus
+          S3_KYC_BUCKET: !Ref KYCBucket
+          SES_FROM_EMAIL: noreply@smartbankai.com
+          NODE_ENV: !Ref Environment
+
+  LoanHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-LoanHandler-${Environment}'
+      Handler: functions/loan/index.handler
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          SNS_TOPIC_ARN: !Ref NotificationsTopic
+          EVENT_BUS_NAME: !Ref SmartBankEventBus
+          S3_KYC_BUCKET: !Ref KYCBucket
+          SES_FROM_EMAIL: noreply@smartbankai.com
+          NODE_ENV: !Ref Environment
+
+  InvestmentHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-InvestmentHandler-${Environment}'
+      Handler: functions/investment/index.handler
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          SNS_TOPIC_ARN: !Ref NotificationsTopic
+          EVENT_BUS_NAME: !Ref SmartBankEventBus
+          NODE_ENV: !Ref Environment
+
+  AuthHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-AuthHandler-${Environment}'
+      Handler: functions/auth/index.handler
+      MemorySize: 256
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          NODE_ENV: !Ref Environment
+          JWT_SECRET: !Sub 'smartbankai-${Environment}-jwt-secret'
+
+  ExpenseHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-ExpenseHandler-${Environment}'
+      Handler: functions/expense/index.handler
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          NODE_ENV: !Ref Environment
+
+  CardHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-CardHandler-${Environment}'
+      Handler: functions/card/index.handler
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          NODE_ENV: !Ref Environment
+
+  ForexHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-ForexHandler-${Environment}'
+      Handler: functions/forex/index.handler
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          NODE_ENV: !Ref Environment
+
+  BankHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'SmartBankAI-BankHandler-${Environment}'
+      Handler: functions/bank/index.handler
+      MemorySize: 256
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDBUri
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          NODE_ENV: !Ref Environment
+
+  # ── AppSync (nested stack) ───────────────────────────────────────────────────
+  AppSyncStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${DeploymentBucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/appsync.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        CognitoUserPoolId: !Ref CognitoUserPool
+        CognitoUserPoolArn: !GetAtt CognitoUserPool.Arn
+        UserHandlerArn: !GetAtt UserHandler.Arn
+        LoanHandlerArn: !GetAtt LoanHandler.Arn
+        InvestmentHandlerArn: !GetAtt InvestmentHandler.Arn
+        AuthHandlerArn: !GetAtt AuthHandler.Arn
+        ExpenseHandlerArn: !GetAtt ExpenseHandler.Arn
+        CardHandlerArn: !GetAtt CardHandler.Arn
+        ForexHandlerArn: !GetAtt ForexHandler.Arn
+        BankHandlerArn: !GetAtt BankHandler.Arn
+
+# ─────────────────────────────────────────────────────────────────────────────
+Outputs:
+  GraphQLApiUrl:
+    Description: AppSync GraphQL endpoint URL
+    Value: !GetAtt AppSyncStack.Outputs.GraphQLApiUrl
+
+  GraphQLApiKey:
+    Description: AppSync API Key
+    Value: !GetAtt AppSyncStack.Outputs.GraphQLApiKey
+
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+
+  CognitoUserPoolClientId:
+    Description: Cognito App Client ID
+    Value: !Ref CognitoUserPoolClient

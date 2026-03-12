@@ -37,7 +37,7 @@ Resources:
       AuthenticationType: AMAZON_COGNITO_USER_POOLS
       UserPoolConfig:
         UserPoolId: !Ref CognitoUserPoolId
-        AwsRegion: !Ref AWS::Region
+        AwsRegion: !Sub '${AWS::Region}'
         DefaultAction: ALLOW
       AdditionalAuthenticationProviders:
         - AuthenticationType: API_KEY
@@ -47,8 +47,8 @@ Resources:
         ExcludeVerboseContent: false
       XrayEnabled: true
       Tags:
-        - TagKey: Environment
-          TagValue: !Ref Environment
+        - Key: Environment
+          Value: !Ref Environment
 
   # ─── API Key (for public/health queries) ─────────────────────────────────────
   SmartBankApiKey:
@@ -56,7 +56,7 @@ Resources:
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
       Description: !Sub 'SmartBankAI API Key - ${Environment}'
-      Expires: !Select [0, [1893456000]]  # Update as needed
+      Expires: 1893456000
 
   # ─── CloudWatch Logging Role ──────────────────────────────────────────────────
   AppSyncLoggingRole:
@@ -107,6 +107,14 @@ Resources:
                   - !Sub '${ForexHandlerArn}:*'
                   - !Ref BankHandlerArn
                   - !Sub '${BankHandlerArn}:*'
+
+  # ─── GraphQL Schema ──────────────────────────────────────────────────────────
+  SmartBankSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    DependsOn: SmartBankGraphQLApi
+    Properties:
+      ApiId: !GetAtt SmartBankGraphQLApi.ApiId
+      DefinitionS3Location: !Sub 's3://storage-s3-siddoji/schema/smartbankai.graphql'
 
   # ─── Lambda DataSources ───────────────────────────────────────────────────────
   UserLambdaDataSource:
@@ -191,6 +199,7 @@ Resources:
 
   # ─── Resolvers — User ─────────────────────────────────────────────────────────
   GetUserResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -201,6 +210,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   ListUsersResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -211,6 +221,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   CreateUserResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -221,6 +232,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   UpdateUserResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -232,6 +244,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   DeleteUserResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -243,6 +256,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   SoftDeleteUserResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -255,6 +269,7 @@ Resources:
 
   # ─── Resolvers — Loan ─────────────────────────────────────────────────────────
   GetLoanResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -266,6 +281,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   ListLoansResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -277,6 +293,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   ApplyLoanResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -288,6 +305,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   ApproveLoanResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -299,6 +317,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   RejectLoanResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -311,6 +330,7 @@ Resources:
 
   # ─── Resolvers — Investment ───────────────────────────────────────────────────
   GetInvestmentResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -322,6 +342,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   ListInvestmentsResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -333,6 +354,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   CreateInvestmentResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -344,6 +366,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   UpdateInvestmentResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -356,6 +379,7 @@ Resources:
 
   # ─── Resolvers — User (new fields) ───────────────────────────────────────────
   GetProfileResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -366,6 +390,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   UpdateProfileResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -377,6 +402,7 @@ Resources:
 
   # ─── Resolvers — Auth (public, API_KEY) ──────────────────────────────────────
   RegisterUserResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -387,6 +413,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   LoginUserResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -398,6 +425,7 @@ Resources:
 
   # ─── Resolvers — Loan (new fields) ───────────────────────────────────────────
   CancelLoanResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -408,6 +436,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   DisburseLoanResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -418,6 +447,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   CloseLoanResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -428,6 +458,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   UpdateLoanResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -439,6 +470,7 @@ Resources:
 
   # ─── Resolvers — Investment (new fields) ──────────────────────────────────────
   CloseInvestmentResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -449,6 +481,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   GetPortfolioSummaryResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -460,6 +493,7 @@ Resources:
 
   # ─── Resolvers — Expense ─────────────────────────────────────────────────────
   ListExpensesResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -470,6 +504,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   GetExpenseResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -480,6 +515,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   ExpenseSummaryResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -490,6 +526,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   AddExpenseResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -500,6 +537,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   UpdateExpenseResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -510,6 +548,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   DeleteExpenseResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -521,6 +560,7 @@ Resources:
 
   # ─── Resolvers — Card ─────────────────────────────────────────────────────────
   ListCardsResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -531,6 +571,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   GetCardResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -541,6 +582,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   RecommendCardsResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -551,6 +593,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   ListSavedCardsResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -561,6 +604,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   SaveCardResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -571,6 +615,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   UnsaveCardResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -582,6 +627,7 @@ Resources:
 
   # ─── Resolvers — Forex ────────────────────────────────────────────────────────
   ListForexTransfersResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -592,6 +638,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   GetForexTransferResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -602,6 +649,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   CreateForexTransferResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -612,6 +660,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   CancelForexTransferResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -623,6 +672,7 @@ Resources:
 
   # ─── Resolvers — Bank ─────────────────────────────────────────────────────────
   ListBanksResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -633,6 +683,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   GetBankResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -643,6 +694,7 @@ Resources:
       ResponseMappingTemplate: '$util.toJson($ctx.result)'
 
   CompareBanksResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
@@ -654,6 +706,7 @@ Resources:
 
   # ─── Resolver — HealthCheck (API_KEY, public) ─────────────────────────────────
   HealthCheckResolver:
+    DependsOn: SmartBankSchema
     Type: AWS::AppSync::Resolver
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId

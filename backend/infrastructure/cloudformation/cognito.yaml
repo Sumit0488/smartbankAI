@@ -86,11 +86,9 @@ Resources:
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: false
         InviteMessageTemplate:
-          EmailMessage: !Sub |
-            Welcome to ${AppName}! Your temporary password is {####}.
-            Please change it upon first login.
+          EmailMessage: !Sub 'Welcome to ${AppName}! Your username is {username} and your temporary password is {####}. Please change it upon first login.'
           EmailSubject: !Sub 'Your ${AppName} temporary password'
-          SMSMessage: !Sub 'Your ${AppName} temp password: {####}'
+          SMSMessage: !Sub 'Your ${AppName} username is {username}, temp password: {####}'
 
       # Tags
       UserPoolTags:

@@ -29,17 +29,19 @@ Parameters:
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
-      - Label: { default: Deployment }
+      - Label:
+          default: Deployment
         Parameters: [Environment, AppName, DeploymentBucket, LambdaS3Key]
-      - Label: { default: Database }
+      - Label:
+          default: Database
         Parameters: [MongoDBUri]
-      - Label: { default: Email }
-        Parameters: [SesFromEmail]
     ParameterLabels:
-      Environment:     { default: 'Environment (dev/staging/prod)' }
-      MongoDBUri:      { default: 'MongoDB Connection URI' }
-      SesFromEmail:    { default: 'SES Sender Email' }
-      DeploymentBucket:{ default: 'S3 Deployment Bucket' }
+      Environment:
+        default: "Environment (dev/staging/prod)"
+      MongoDBUri:
+        default: "MongoDB Connection URI"
+      DeploymentBucket:
+        default: "S3 Deployment Bucket"
 
 Resources:
 

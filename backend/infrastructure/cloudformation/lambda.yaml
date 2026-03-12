@@ -17,12 +17,6 @@ Parameters:
   LambdaS3Key:
     Type: String
     Default: lambda/smartbankai-backend.zip
-  EventBusName:
-    Type: String
-    Default: ''  # Computed from Environment if empty
-  SnsTopicArn:
-    Type: String
-    Default: ''  # Created by ses-sns.yaml stack
 
 Resources:
 
@@ -57,7 +51,7 @@ Resources:
                   - !Sub 'arn:aws:s3:::smartbankai-*/*'
               - Effect: Allow
                 Action: ['events:PutEvents']
-                Resource: !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/${EventBusName}'
+                Resource: !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/SmartBankAI-Events-${Environment}'
               - Effect: Allow
                 Action: ['sqs:SendMessage', 'sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes']
                 Resource: !Sub 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:SmartBankAI-*'
@@ -72,18 +66,6 @@ Resources:
               - Effect: Allow
                 Action: ['secretsmanager:GetSecretValue']
                 Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:smartbankai/*'
-
-  # ─── Common Environment ──────────────────────────────────────────────────────
-  LambdaCommonEnv: &common_env
-    MONGODB_URI: !Ref MongoDBUri
-    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
-    COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
-    SES_FROM_EMAIL: !Ref SesFromEmail
-    SNS_TOPIC_ARN: !Ref SnsTopicArn
-    EVENT_BUS_NAME: !Ref EventBusName
-    S3_KYC_BUCKET: !Ref S3KycBucket
-    NODE_ENV: !Ref Environment
-    LOG_LEVEL: !If [IsProd, 'info', 'debug']
 
   # ─── CloudWatch Log Groups ──────────────────────────────────────────────────
   UserHandlerLogGroup:
@@ -148,7 +130,6 @@ Resources:
         S3Key: !Ref LambdaS3Key
       Timeout: 30
       MemorySize: 512
-      ReservedConcurrentExecutions: 100
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDBUri
@@ -178,7 +159,6 @@ Resources:
         S3Key: !Ref LambdaS3Key
       Timeout: 30
       MemorySize: 512
-      ReservedConcurrentExecutions: 50
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDBUri
@@ -208,7 +188,6 @@ Resources:
         S3Key: !Ref LambdaS3Key
       Timeout: 30
       MemorySize: 512
-      ReservedConcurrentExecutions: 50
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDBUri
@@ -238,14 +217,13 @@ Resources:
         S3Key: !Ref LambdaS3Key
       Timeout: 30
       MemorySize: 256
-      ReservedConcurrentExecutions: 50
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDBUri
           COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
           NODE_ENV: !Ref Environment
           AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
-          JWT_SECRET: !Sub '{{resolve:secretsmanager:smartbankai/${Environment}/jwt-secret}}'
+          JWT_SECRET: !Sub 'smartbankai-${Environment}-default-jwt-secret-change-me'
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -265,7 +243,6 @@ Resources:
         S3Key: !Ref LambdaS3Key
       Timeout: 30
       MemorySize: 512
-      ReservedConcurrentExecutions: 50
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDBUri
@@ -291,7 +268,6 @@ Resources:
         S3Key: !Ref LambdaS3Key
       Timeout: 30
       MemorySize: 512
-      ReservedConcurrentExecutions: 50
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDBUri
@@ -317,7 +293,6 @@ Resources:
         S3Key: !Ref LambdaS3Key
       Timeout: 30
       MemorySize: 512
-      ReservedConcurrentExecutions: 50
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDBUri
@@ -343,7 +318,6 @@ Resources:
         S3Key: !Ref LambdaS3Key
       Timeout: 30
       MemorySize: 256
-      ReservedConcurrentExecutions: 30
       Environment:
         Variables:
           MONGODB_URI: !Ref MongoDBUri
@@ -412,9 +386,6 @@ Resources:
       Name: live
       FunctionName: !Ref BankHandlerFunction
       FunctionVersion: '$LATEST'
-
-Conditions:
-  IsProd: !Equals [!Ref Environment, prod]
 
 Outputs:
   UserHandlerArn:

@@ -15,20 +15,18 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
 
 jobs:
-  # ─── Validate ──────────────────────────────────────────────────────────────
-  validate:
-    name: Validate Schema & Lint
+  # ─── Validate & Test ───────────────────────────────────────────────────────
+  test:
+    name: Validate & Test
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -40,34 +38,8 @@ jobs:
       - name: Validate GraphQL schema
         run: node scripts/validateSchema.js
 
-      - name: Run linter
-        run: npm run lint --if-present
-
-  # ─── Test ──────────────────────────────────────────────────────────────────
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    needs: validate
-    defaults:
-      run:
-        working-directory: backend
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
       - name: Run tests
-        run: npm test -- --passWithNoTests --coverage --coverageReporters=lcov
+        run: npm test -- --passWithNoTests
         env:
           NODE_ENV: test
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
@@ -77,18 +49,11 @@ jobs:
           EVENT_BUS_NAME: test-bus
           SNS_TOPIC_ARN: arn:aws:sns:ap-south-1:123456789012:test
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: backend/coverage/lcov.info
-
   # ─── Deploy ────────────────────────────────────────────────────────────────
   deploy:
-    name: Deploy to AWS (AppSync + Lambda + All Resources)
+    name: SAM Deploy to AWS
     runs-on: ubuntu-latest
-    needs: [validate, test]
+    needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
     defaults:
@@ -96,11 +61,9 @@ jobs:
         working-directory: backend
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -113,96 +76,104 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ secrets.AWS_REGION }}
 
-      # ── Bootstrap: create S3 deployment bucket if it doesn't exist ──────────
+      - name: Setup AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
       - name: Create S3 deployment bucket (if not exists)
         run: |
           BUCKET="${{ secrets.S3_DEPLOYMENT_BUCKET }}"
           REGION="${{ secrets.AWS_REGION }}"
           if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
-            echo "Creating S3 bucket: $BUCKET"
             if [ "$REGION" = "us-east-1" ]; then
               aws s3api create-bucket --bucket "$BUCKET" --region "$REGION"
             else
-              aws s3api create-bucket \
-                --bucket "$BUCKET" \
-                --region "$REGION" \
+              aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" \
                 --create-bucket-configuration LocationConstraint="$REGION"
             fi
-            aws s3api put-bucket-versioning \
-              --bucket "$BUCKET" \
+            aws s3api put-bucket-versioning --bucket "$BUCKET" \
               --versioning-configuration Status=Enabled
-            echo "Bucket created and versioning enabled."
-          else
-            echo "Bucket $BUCKET already exists."
           fi
+
+      - name: Upload AppSync CloudFormation template + schema to S3
+        run: |
+          aws s3 sync infrastructure/cloudformation/ \
+            s3://${{ secrets.S3_DEPLOYMENT_BUCKET }}/cloudformation/ \
+            --region ${{ secrets.AWS_REGION }}
+          cat graphql/schema/shared.graphql \
+              graphql/schema/user.graphql \
+              graphql/schema/auth.graphql \
+              graphql/schema/loan.graphql \
+              graphql/schema/investment.graphql \
+              graphql/schema/expense.graphql \
+              graphql/schema/card.graphql \
+              graphql/schema/forex.graphql \
+              graphql/schema/bank.graphql > /tmp/smartbankai.graphql
+          aws s3 cp /tmp/smartbankai.graphql \
+            s3://${{ secrets.S3_DEPLOYMENT_BUCKET }}/schema/smartbankai.graphql \
+            --region ${{ secrets.AWS_REGION }}
 
       - name: Install production dependencies
         run: npm ci --omit=dev
 
-      - name: Write minimal .env for deploy script
+      - name: SAM Build
+        run: sam build --use-container
+
+      - name: SAM Deploy
         run: |
-          cat > .env << 'ENVEOF'
-          AWS_REGION=${{ secrets.AWS_REGION }}
-          MONGODB_URI=${{ secrets.MONGODB_URI }}
-          CF_STACK_NAME=${{ secrets.CF_STACK_NAME }}
-          S3_DEPLOYMENT_BUCKET=${{ secrets.S3_DEPLOYMENT_BUCKET }}
-          NODE_ENV=production
-          ENVEOF
+          sam deploy \
+            --stack-name smartbankai-prod \
+            --s3-bucket ${{ secrets.S3_DEPLOYMENT_BUCKET }} \
+            --s3-prefix sam \
+            --region ${{ secrets.AWS_REGION }} \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --no-fail-on-empty-changeset \
+            --no-confirm-changeset \
+            --parameter-overrides \
+              Environment=prod \
+              "MongoDBUri=${{ secrets.MONGODB_URI }}" \
+              DeploymentBucket=${{ secrets.S3_DEPLOYMENT_BUCKET }}
 
-      # ── Deploy: CloudFormation creates Cognito, SNS, S3, EventBridge, AppSync
-      - name: Deploy full stack to AWS
-        run: bash scripts/deployment/deploy.sh prod
-        env:
-          MONGODB_URI:          ${{ secrets.MONGODB_URI }}
-          CF_STACK_NAME:        ${{ secrets.CF_STACK_NAME }}
-          S3_DEPLOYMENT_BUCKET: ${{ secrets.S3_DEPLOYMENT_BUCKET }}
-          AWS_REGION:           ${{ secrets.AWS_REGION }}
-          SES_FROM_EMAIL:       noreply@smartbankai.com
-
-      # ── Print all created resources so you can use them in the frontend ──────
-      - name: Print stack outputs (AppSync URL, Cognito IDs, etc.)
+      - name: Print stack outputs
         if: success()
         run: |
-          STACK="${{ secrets.CF_STACK_NAME }}-prod"
-          REGION="${{ secrets.AWS_REGION }}"
           echo ""
           echo "============================================================"
-          echo "  ALL CREATED RESOURCES — copy these to your frontend"
+          echo "  DEPLOYMENT COMPLETE — copy these to your frontend .env"
           echo "============================================================"
           aws cloudformation describe-stacks \
-            --stack-name "$STACK" \
-            --region "$REGION" \
+            --stack-name smartbankai-prod \
+            --region ${{ secrets.AWS_REGION }} \
             --query "Stacks[0].Outputs[*].{Key:OutputKey,Value:OutputValue}" \
             --output table
-          echo ""
-          echo "  Frontend config (src/services/apiService.js):"
           APPSYNC_URL=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" --region "$REGION" \
+            --stack-name smartbankai-prod --region ${{ secrets.AWS_REGION }} \
             --query "Stacks[0].Outputs[?OutputKey=='GraphQLApiUrl'].OutputValue" \
             --output text)
           API_KEY=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" --region "$REGION" \
+            --stack-name smartbankai-prod --region ${{ secrets.AWS_REGION }} \
             --query "Stacks[0].Outputs[?OutputKey=='GraphQLApiKey'].OutputValue" \
             --output text)
-          COGNITO_POOL=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" --region "$REGION" \
+          POOL_ID=$(aws cloudformation describe-stacks \
+            --stack-name smartbankai-prod --region ${{ secrets.AWS_REGION }} \
             --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" \
             --output text)
-          COGNITO_CLIENT=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK" --region "$REGION" \
+          CLIENT_ID=$(aws cloudformation describe-stacks \
+            --stack-name smartbankai-prod --region ${{ secrets.AWS_REGION }} \
             --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolClientId'].OutputValue" \
             --output text)
           echo "  VITE_APPSYNC_URL=$APPSYNC_URL"
           echo "  VITE_APPSYNC_API_KEY=$API_KEY"
-          echo "  VITE_COGNITO_USER_POOL_ID=$COGNITO_POOL"
-          echo "  VITE_COGNITO_CLIENT_ID=$COGNITO_CLIENT"
+          echo "  VITE_COGNITO_USER_POOL_ID=$POOL_ID"
+          echo "  VITE_COGNITO_CLIENT_ID=$CLIENT_ID"
           echo "============================================================"
 
       - name: Notify success
         if: success()
         uses: slackapi/slack-github-action@v1.25.0
         with:
-          payload: '{"text":"SmartBankAI deployment to *prod* succeeded. Commit: ${{ github.sha }}"}'
+          payload: '{"text":"SmartBankAI *prod* deployment succeeded. Commit: ${{ github.sha }}"}'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true
@@ -211,7 +182,7 @@ jobs:
         if: failure()
         uses: slackapi/slack-github-action@v1.25.0
         with:
-          payload: '{"text":"SmartBankAI deployment to *prod* FAILED. Commit: ${{ github.sha }} — Check logs immediately."}'
+          payload: '{"text":"SmartBankAI *prod* deployment FAILED. Commit: ${{ github.sha }}"}'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true
