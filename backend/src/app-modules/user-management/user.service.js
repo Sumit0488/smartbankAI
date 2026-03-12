@@ -3,11 +3,44 @@
  * Source: codegen/schemas/user.schema.yaml
  */
 
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const User = require('./user.model');
 const { UserInputError } = require('apollo-server-express');
-const { updateUserSchema, validate } = require('./user.validation');
+const { registerUserSchema, loginUserSchema, updateUserSchema, validate } = require('./user.validation');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
 
 class UserService {
+
+  // ── Register ─────────────────────────────────────────────────────────────────
+  async register(input) {
+    const { error } = validate(input, registerUserSchema);
+    if (error) throw new UserInputError(error.details.map(d => d.message).join(', '));
+
+    const existing = await User.findOne({ email: input.email });
+    if (existing) throw new UserInputError('Email already registered.');
+
+    const hashedPassword = await bcrypt.hash(input.password, 10);
+    const user = await User.create({ ...input, password: hashedPassword });
+    const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    return { token, user };
+  }
+
+  // ── Login ────────────────────────────────────────────────────────────────────
+  async login(email, password) {
+    const { error } = validate({ email, password }, loginUserSchema);
+    if (error) throw new UserInputError(error.details.map(d => d.message).join(', '));
+
+    const user = await User.findOne({ email });
+    if (!user) throw new UserInputError('Invalid credentials.');
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) throw new UserInputError('Invalid credentials.');
+
+    const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    return { token, user };
+  }
 
   // ── Get Profile ──────────────────────────────────────────────────────────────
   async getProfile(userId) {

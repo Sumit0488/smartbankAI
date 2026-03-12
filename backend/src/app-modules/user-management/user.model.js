@@ -32,10 +32,14 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    password: {
+      type: String,
+      required: true,
+    },
     profileType: {
       type: String,
-      enum: ["STUDENT","WORKING_PROFESSIONAL","SELF_EMPLOYED","BUSINESS_OWNER","OTHER"],
-      default: "OTHER",
+      enum: ["Student","Working Professional","Self Employed","Business Owner","Other"],
+      default: "Other",
     },
     isEmailVerified: {
       type: Boolean,

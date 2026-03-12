@@ -5,8 +5,8 @@
 
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const ForexTransfer = require('./forexTransfer.model');
-const forexService = require('./forexTransfer.service');
+const ForexTransfer = require('./forextransfer.model');
+const forexService = require('./forextransfer.service');
 
 let mongoServer;
 
