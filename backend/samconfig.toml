@@ -7,5 +7,5 @@ stack_name = "smartbankai"
 s3_bucket = "storage-s3-siddoji"
 s3_prefix = "sam"
 region = "ap-south-1"
-capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
 no_fail_on_empty_changeset = true

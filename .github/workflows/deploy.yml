@@ -129,7 +129,7 @@ jobs:
             --s3-bucket ${{ secrets.S3_DEPLOYMENT_BUCKET }} \
             --s3-prefix sam \
             --region ${{ secrets.AWS_REGION }} \
-            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --no-fail-on-empty-changeset \
             --no-confirm-changeset \
             --parameter-overrides \
