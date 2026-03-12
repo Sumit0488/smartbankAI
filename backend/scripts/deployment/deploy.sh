@@ -125,7 +125,6 @@ aws cloudformation deploy \
   --parameter-overrides \
       Environment="$ENVIRONMENT" \
       MongoDBUri="$MONGODB_URI" \
-      SesFromEmail="${SES_FROM_EMAIL:-noreply@smartbankai.com}" \
       DeploymentBucket="$S3_DEPLOYMENT_BUCKET" \
       LambdaS3Key="$LAMBDA_KEY" \
   --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \

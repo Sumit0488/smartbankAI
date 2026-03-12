@@ -13,11 +13,6 @@ Parameters:
     NoEcho: true
     Description: MongoDB Atlas connection string
 
-  SesFromEmail:
-    Type: String
-    Default: noreply@smartbankai.com
-    Description: Verified SES sender email address
-
   DeploymentBucket:
     Type: String
     Description: S3 bucket containing CloudFormation nested templates and Lambda ZIP
@@ -82,12 +77,9 @@ Resources:
       Parameters:
         Environment: !Ref Environment
         MongoDBUri: !Ref MongoDBUri
-        SesFromEmail: !Ref SesFromEmail
         CognitoUserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
         DeploymentBucket: !Ref DeploymentBucket
         LambdaS3Key: !Ref LambdaS3Key
-        EventBusName: !Sub 'SmartBankAI-Events-${Environment}'
-        SnsTopicArn: !GetAtt SnsSqsStack.Outputs.NotificationsTopicArn
       Tags:
         - Key: Environment
           Value: !Ref Environment
