@@ -53,12 +53,14 @@ Resources:
           Value: !Ref Environment
 
   # ─── API Key (for public/health queries) ─────────────────────────────────────
+  # NOTE: AppSync API keys expire in max 365 days. Update Expires annually.
+  # Current value = March 13 2027 (Unix 1804896000). Rotate before that date.
   SmartBankApiKey:
     Type: AWS::AppSync::ApiKey
     Properties:
       ApiId: !GetAtt SmartBankGraphQLApi.ApiId
       Description: !Sub 'SmartBankAI API Key - ${Environment}'
-      Expires: 1893456000
+      Expires: 1804896000
 
   # ─── CloudWatch Logging Role ──────────────────────────────────────────────────
   AppSyncLoggingRole:

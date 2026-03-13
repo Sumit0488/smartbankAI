@@ -47,9 +47,4 @@ jobs:
         run: bash scripts/deployment/rollback.sh ${{ inputs.environment }}
 
       - name: Notify rollback
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-          payload: '{"text":"SmartBankAI *${{ inputs.environment }}* has been ROLLED BACK by ${{ github.actor }}."}'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        continue-on-error: true
+        run: echo "Rollback of ${{ inputs.environment }} completed by ${{ github.actor }}"
