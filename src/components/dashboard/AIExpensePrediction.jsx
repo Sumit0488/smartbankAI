@@ -3,32 +3,36 @@ import { Sparkles, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 
 const AIExpensePrediction = ({ currentExpenses }) => {
   // Simple mock prediction logic based on current expenses
+  const food = currentExpenses?.food || 0;
+  const travel = currentExpenses?.travel || 0;
+  const shopping = currentExpenses?.shopping || 0;
+
   const predictions = [
-    { 
-      category: 'Food Delivery', 
-      current: currentExpenses.food, 
-      predicted: Math.round(currentExpenses.food * 1.15), 
+    {
+      category: 'Food Delivery',
+      current: food,
+      predicted: Math.round(food * 1.15),
       trend: 'up',
-      reason: 'Weekend ordering frequency is increasing' 
+      reason: 'Weekend ordering frequency is increasing'
     },
-    { 
-      category: 'Travel', 
-      current: currentExpenses.travel, 
-      predicted: Math.round(currentExpenses.travel * 0.9), 
+    {
+      category: 'Travel',
+      current: travel,
+      predicted: Math.round(travel * 0.9),
       trend: 'down',
-      reason: 'Based on your recent fuel card usage' 
+      reason: 'Based on your recent fuel card usage'
     },
-    { 
-      category: 'Shopping', 
-      current: currentExpenses.shopping, 
-      predicted: Math.round(currentExpenses.shopping * 1.25), 
+    {
+      category: 'Shopping',
+      current: shopping,
+      predicted: Math.round(shopping * 1.25),
       trend: 'up',
-      reason: 'Upcoming festive season detected' 
+      reason: 'Upcoming festive season detected'
     }
   ];
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 h-full">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm space-y-5 h-full">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
            <div className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg">
@@ -43,7 +47,7 @@ const AIExpensePrediction = ({ currentExpenses }) => {
 
       <div className="space-y-4">
         {predictions.map((item, idx) => (
-          <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between gap-4">
+          <div key={idx} className="p-4 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40 flex flex-col sm:flex-row justify-between gap-4">
              <div>
                <h4 className="font-bold text-slate-800">{item.category}</h4>
                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">

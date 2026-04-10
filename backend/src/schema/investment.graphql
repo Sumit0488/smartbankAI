@@ -1,0 +1,227 @@
+"""Available investment product types"""
+enum InvestmentType {
+  FIXED_DEPOSIT
+  MUTUAL_FUND
+  STOCK
+  PF
+  SIP
+}
+
+"""Metadata for an investment product category"""
+type InvestmentOption {
+  type: String!
+  riskLevel: String!
+  expectedReturn: String!
+  minInvestment: Float!
+  description: String!
+}
+
+"""Metadata for a company offering investment products"""
+type Company {
+  id: ID!
+  name: String!
+  type: String!
+  expectedReturn: String!
+  duration: String!
+  details: String!
+}
+
+"""Current lifecycle status of an investment"""
+enum InvestmentStatus {
+  """Currently active and tracking value"""
+  ACTIVE
+  """Investment has been liquidated or matured"""
+  CLOSED
+  """Transaction is awaiting verification"""
+  PENDING
+}
+
+"""An investment record tracking capital and performance"""
+type Investment {
+  """Initial capital amount invested"""
+  amount: Float!
+  """Timestamp of record creation"""
+  createdAt: DateTime!
+  """Calculated current market value"""
+  currentValue: Float
+  """Expected percentage return per annum"""
+  expectedReturn: Float
+  """Absolute numerical gain or loss"""
+  gainLoss: Float
+  """Percentage gain or loss compared to principal"""
+  gainLossPercent: Float
+  """Unique database identifier"""
+  id: ID!
+  """Date when the investment was initiated"""
+  investedAt: DateTime!
+  """Business-friendly unique investment identifier"""
+  investmentId: String!
+  """The type of investment product"""
+  investmentType: InvestmentType!
+  """Optional remarks or details"""
+  notes: String
+  """Current tracking status"""
+  status: InvestmentStatus!
+  """Timestamp of last record modification"""
+  updatedAt: DateTime!
+  """Resolved owner user object"""
+  user: User
+  """Reference to the owner user ID"""
+  userId: String!
+}
+
+"""Paginated list of investments with metadata"""
+type InvestmentListResponse {
+  """True if a next page of results exists"""
+  hasNextPage: Boolean!
+  """True if a previous page of results exists"""
+  hasPrevPage: Boolean!
+  """Array of current page investment items"""
+  items: [Investment!]!
+  """Number of items requested per page"""
+  limit: Int!
+  """Current 1-based page index"""
+  page: Int!
+  """Total count of items matching the query"""
+  total: Int!
+  """Total number of pages available"""
+  totalPages: Int!
+}
+
+"""Aggregated portfolio summary statistics for a user"""
+type PortfolioSummary {
+  """Count of active investment records"""
+  activeInvestments: Int!
+  """Breakdown of portfolio by investment type"""
+  byType: [InvestmentTypeBreakdown!]!
+  """Count of closed/matured investment records"""
+  closedInvestments: Int!
+  """Total percentage performance of the portfolio"""
+  gainLossPercent: Float!
+  """Current total market value of all active investments"""
+  totalCurrentValue: Float!
+  """Total absolute gain/loss across portfolio"""
+  totalGainLoss: Float!
+  """Total principal amount invested across all records"""
+  totalInvested: Float!
+  """The user ID the portfolio belongs to"""
+  userId: String!
+}
+
+"""Numerical breakdown of investments for a specific type"""
+type InvestmentTypeBreakdown {
+  """Number of investments of this type"""
+  count: Int!
+  """The investment type being summarized"""
+  investmentType: InvestmentType!
+  """Total current value for this category"""
+  totalCurrentValue: Float!
+  """Total principal invested in this category"""
+  totalInvested: Float!
+}
+
+"""Input for creating a new investment tracking record"""
+input CreateInvestmentInput {
+  """Principal amount to invest"""
+  amount: Float!
+  """Estimated current market value (if existing)"""
+  currentValue: Float
+  """Projected annual return percentage"""
+  expectedReturn: Float
+  """The type of investment product"""
+  investmentType: InvestmentType!
+  """Optional notes or description"""
+  notes: String
+}
+
+"""Input for updating an existing investment record"""
+input UpdateInvestmentInput {
+  """Update the principal amount"""
+  amount: Float
+  """Update the current market value"""
+  currentValue: Float
+  """Update the expected annual return"""
+  expectedReturn: Float
+  """Update the optional notes"""
+  notes: String
+  """Update the tracking status"""
+  status: InvestmentStatus
+}
+
+extend type Query {
+  """Get an investment by its investmentId"""
+  getInvestment(
+    """The business-friendly investment identifier"""
+    investmentId: ID!
+  ): Investment
+
+  """List investments for a user with pagination"""
+  listInvestments(
+    """Filter by owner user ID"""
+    userId: ID
+    """Filter by investment product type"""
+    investmentType: InvestmentType
+    """Filter by current status"""
+    status: InvestmentStatus
+    """Page number (1-based)"""
+    page: Int
+    """Items per page"""
+    limit: Int
+    """Sort criteria"""
+    sort: SortInput
+  ): InvestmentListResponse!
+
+  """Get aggregated portfolio summary for a user"""
+  getPortfolioSummary(
+    """Target user ID"""
+    userId: ID!
+  ): PortfolioSummary!
+
+  """List available investment options"""
+  listInvestmentOptions: [InvestmentOption!]!
+
+  """List companies for a specific investment type"""
+  listCompanies(type: String!): [Company!]!
+}
+
+extend type Mutation {
+  """Create a new investment record (requires auth)"""
+  createInvestment(
+    """The investment data input"""
+    input: CreateInvestmentInput!
+  ): Investment!
+
+  """Update an existing investment record"""
+  updateInvestment(
+    """The business-friendly investment identifier"""
+    investmentId: ID!
+    """Field updates"""
+    input: UpdateInvestmentInput!
+  ): Investment!
+
+  """Close an investment record and record final value"""
+  closeInvestment(
+    """The business-friendly investment identifier"""
+    investmentId: ID!
+    """The final market value at time of closing"""
+    finalValue: Float
+  ): Investment!
+
+  """Process a simulated payment for an investment"""
+  processDummyPayment(input: DummyPaymentInput!): PaymentResult!
+}
+
+"""Input for dummy payment processing"""
+input DummyPaymentInput {
+  amount: Float!
+  paymentMethod: String!
+  investmentId: ID
+  companyId: ID
+}
+
+"""Result of a dummy payment operation"""
+type PaymentResult {
+  success: Boolean!
+  message: String!
+  transactionId: String
+}

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { X, TrendingUp, AlertTriangle, Info, Sparkles, Loader2, ArrowLeft, BarChart2 } from 'lucide-react';
 import { generateInvestmentExplanation } from '../../services/aiService';
 import { createInvestment } from '../../services/apiService';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, Tooltip } from 'recharts';
 
 const generateInvestmentStats = (name) => {
    const len = name.length;

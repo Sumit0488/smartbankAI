@@ -1,0 +1,56 @@
+enum ForexStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+type ForexTransfer {
+  id: ID!
+  transferId: ID!
+  userId: ID!
+  fromCurrency: String!
+  toCurrency: String!
+  amount: Float!
+  convertedAmount: Float!
+  exchangeRate: Float!
+  fee: Float!
+  status: ForexStatus!
+  purpose: String
+  recipientName: String
+  recipientAccount: String
+  recipientBank: String
+  createdAt: DateTime
+  updatedAt: DateTime
+}
+
+type ForexListResponse {
+  items: [ForexTransfer!]!
+  total: Int!
+  page: Int!
+  limit: Int!
+  totalPages: Int!
+  hasNextPage: Boolean!
+  hasPrevPage: Boolean!
+}
+
+input CreateForexTransferInput {
+  fromCurrency: String!
+  toCurrency: String!
+  amount: Float!
+  purpose: String
+  recipientName: String
+  recipientAccount: String
+  recipientBank: String
+}
+
+extend type Query {
+  listForexTransfers(page: Int, limit: Int): ForexListResponse!
+  getForexTransfer(transferId: ID!): ForexTransfer
+}
+
+extend type Mutation {
+  createForexTransfer(input: CreateForexTransferInput!): ForexTransfer!
+  cancelForexTransfer(transferId: ID!): ForexTransfer!
+}

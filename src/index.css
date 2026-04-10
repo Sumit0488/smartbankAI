@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Use class-based dark mode so the .dark toggle works */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary-50: #f0fdf4;
   --color-primary-100: #dcfce7;
@@ -16,7 +19,8 @@
     @apply bg-slate-50 text-slate-900 antialiased;
   }
   
-  .dark body {
-    @apply bg-dark-bg text-slate-100;
+  /* Dark mode body — triggered when .dark is on <html> */
+  :where(.dark) body {
+    @apply bg-slate-950 text-slate-100;
   }
 }

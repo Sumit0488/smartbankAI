@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { Target, AlertTriangle } from 'lucide-react';
 
 const AIBudgetPlanner = ({ income, currentExpenses, budgetPlan }) => {
@@ -19,7 +19,7 @@ const AIBudgetPlanner = ({ income, currentExpenses, budgetPlan }) => {
   ];
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-full flex flex-col">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
           <Target className="text-indigo-500" size={20} /> AI Budget Plan

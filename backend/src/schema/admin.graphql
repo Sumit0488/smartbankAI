@@ -1,0 +1,128 @@
+"""Filter options for admin user listing"""
+input AdminUserFilter {
+  """Filter by creation date (after)"""
+  createdAfter: DateTime
+  """Filter by creation date (before)"""
+  createdBefore: DateTime
+  """Filter by email verification status"""
+  isEmailVerified: Boolean
+  """Filter by user profile type"""
+  profileType: UserProfileType
+  """Filter by user role"""
+  role: UserRole
+  """Search term for name/email"""
+  search: String
+  """Filter by user status"""
+  status: UserStatus
+}
+
+"""Input for admin-level user updates (can change role and status)"""
+input AdminUpdateUserInput {
+  """Force set email verification status"""
+  isEmailVerified: Boolean
+  """Update user's full name"""
+  name: String
+  """Update user's phone number"""
+  phone: String
+  """Update user's profile type"""
+  profileType: UserProfileType
+  """Update user's role"""
+  role: UserRole
+  """Update user's salary"""
+  salary: Float
+  """Update user's account status"""
+  status: UserStatus
+}
+
+"""Admin dashboard summary statistics"""
+type AdminStats {
+  """Number of investments currently active"""
+  activeInvestments: Int!
+  """Number of users with ACTIVE status"""
+  activeUsers: Int!
+  """Number of loans with APPROVED status"""
+  approvedLoans: Int!
+  """Number of loans with PENDING status"""
+  pendingLoans: Int!
+  """Total number of investments in system"""
+  totalInvestments: Int!
+  """Total number of loans in system"""
+  totalLoans: Int!
+  """Total number of users in system"""
+  totalUsers: Int!
+}
+
+extend type Query {
+  """List all users with advanced filtering — admin only"""
+  adminListUsers(
+    """Page number (1-based)"""
+    page: Int
+    """Items per page"""
+    limit: Int
+    """Advanced filters"""
+    filter: AdminUserFilter
+    """Sort options"""
+    sort: SortInput
+  ): UserListResponse!
+
+  """Get full user details by userId — admin only"""
+  adminGetUser(
+    """Target userId"""
+    userId: ID!
+  ): User
+
+  """Get admin dashboard statistics"""
+  adminGetStats: AdminStats!
+}
+
+extend type Mutation {
+  """Admin: delete a user permanently"""
+  adminDeleteUser(
+    """Target userId"""
+    userId: ID!
+  ): DeleteResult!
+
+  """Admin: update a user with elevated permissions"""
+  adminUpdateUser(
+    """Target userId"""
+    userId: ID!
+    """Field updates"""
+    input: AdminUpdateUserInput!
+  ): User!
+
+  """Admin: edit a user (alias for adminUpdateUser with additional audit trail)"""
+  adminEditUser(
+    """Target userId"""
+    userId: ID!
+    """Field updates"""
+    input: AdminUpdateUserInput!
+    """Reason for manual edit (audited)"""
+    reason: String
+  ): User!
+
+  """Admin: soft-delete a user"""
+  adminSoftDeleteUser(
+    """Target userId"""
+    userId: ID!
+  ): User!
+
+  """Admin: bulk delete multiple users"""
+  adminBulkDeleteUsers(
+    """List of user IDs to delete"""
+    userIds: [ID!]!
+  ): BulkDeleteResult!
+
+  """Admin: suspend a user (sets status INACTIVE)"""
+  adminSuspendUser(
+    """Target userId"""
+    userId: ID!
+    """Reason for suspension (displayed to user)"""
+    reason: String
+  ): User!
+
+  """Admin: reactivate a suspended user"""
+  adminReactivateUser(
+    """Target userId"""
+    userId: ID!
+  ): User!
+}

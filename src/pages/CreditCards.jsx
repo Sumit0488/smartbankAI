@@ -6,6 +6,7 @@ import {
   Briefcase, Plane, Wallet, Trash2, ArrowLeft, Info
 } from 'lucide-react';
 import { getCreditCards, getForexCards, getDebitCards } from '../services/apiService';
+import { applyCard } from '../services/cardService';
 
 // Official bank card application links
 const BANK_APPLY_LINKS = {
@@ -34,6 +35,7 @@ const SmartCardAdvisor = () => {
     intlUsage: 'No'
   });
   const [cardsData, setCardsData] = useState({ credit: [], forex: [], debit: [] });
+  const [appliedCards, setAppliedCards] = useState({}); // cardId -> { success, message }
 
   const [searchParams] = useSearchParams();
 
@@ -76,25 +78,65 @@ const SmartCardAdvisor = () => {
 
   const getRecommendations = useMemo(() => {
     if (step !== 'results') return [];
-    
+
     let source = [];
     if (category === 'forex') source = cardsData.forex;
     else if (category === 'debit') source = cardsData.debit;
     else source = cardsData.credit;
 
-    // Simplified recommendation logic based on user type and purpose
-    const filtered = source.filter(card => {
-      if (!profile.userType) return true;
-      if (card.eligibility?.userType) {
-        return card.eligibility.userType.includes(profile.userType);
+    const income = Number(profile.income) || 0;
+
+    // Score each card based on profile match
+    const scored = source.map(card => {
+      let score = 0;
+
+      // Eligibility check — disqualify cards the user can't get
+      if (card.eligibility?.minIncome && income > 0 && income < card.eligibility.minIncome) {
+        score -= 10;
       }
-      if (card.eligibility?.minIncome) {
-        return Number(profile.income) >= card.eligibility.minIncome;
+      if (card.eligibility?.userType && profile.userType) {
+        if (card.eligibility.userType.includes(profile.userType)) score += 5;
       }
-      return true;
+
+      // Purpose match
+      if (profile.purpose) {
+        const purpose = profile.purpose.toLowerCase();
+        const cardText = ((card.name || '') + ' ' + (card.bestFor || '') + ' ' + (card.description || '')).toLowerCase();
+        if (cardText.includes(purpose)) score += 4;
+        if (purpose.includes('travel') && card.forexMarkup != null) score += 3;
+        if (purpose.includes('cashback') && (card.cashback_rate || card.rewardsRate)) score += 3;
+      }
+
+      // Bank preference
+      if (profile.bank && (card.bank || card.provider || card.bankName || '').toLowerCase().includes(profile.bank.toLowerCase())) {
+        score += 3;
+      }
+
+      // International usage — boost low forex markup cards
+      if (profile.intlUsage === 'Yes' && category === 'forex') score += 4;
+      if (profile.intlUsage === 'Yes' && card.forexMarkup === '0%') score += 3;
+
+      // Prefer free annual fee
+      if ((card.annualFee ?? card.fee) === 0) score += 1;
+
+      return { ...card, _score: score };
     });
 
-    return filtered.slice(0, 3);
+    // Sort by score descending
+    const sorted = scored.sort((a, b) => b._score - a._score);
+
+    // Deduplicate by card name (case-insensitive) and cardId
+    const seen = new Set();
+    const unique = [];
+    for (const card of sorted) {
+      const key = (card.name || card.cardName || card.id || '').toLowerCase().trim();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        unique.push(card);
+      }
+    }
+
+    return unique.slice(0, 3);
   }, [step, category, profile, cardsData.forex, cardsData.debit, cardsData.credit]);
 
   return (
@@ -198,11 +240,11 @@ const SmartCardAdvisor = () => {
           <div className="p-8 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
                   <User size={16} className="text-indigo-500" /> User Type
                 </label>
-                <select 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                <select
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-slate-800 dark:text-white dark:placeholder-gray-400 dark:border-slate-600"
                   value={profile.userType}
                   onChange={(e) => setProfile({...profile, userType: e.target.value})}
                 >
@@ -215,24 +257,24 @@ const SmartCardAdvisor = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
                   <IndianRupee size={16} className="text-emerald-500" /> Monthly Income (₹)
                 </label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   placeholder="e.g. 50000"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-slate-800 dark:text-white dark:placeholder-gray-400 dark:border-slate-600"
                   value={profile.income}
                   onChange={(e) => setProfile({...profile, income: e.target.value})}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
                   <Sparkles size={16} className="text-amber-500" /> Primary Purpose
                 </label>
-                <select 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                <select
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-slate-800 dark:text-white dark:placeholder-gray-400 dark:border-slate-600"
                   value={profile.purpose}
                   onChange={(e) => setProfile({...profile, purpose: e.target.value})}
                 >
@@ -245,11 +287,11 @@ const SmartCardAdvisor = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
                   <Landmark size={16} className="text-slate-400" /> Preferred Bank (Optional)
                 </label>
-                <select 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                <select
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-slate-800 dark:text-white dark:placeholder-gray-400 dark:border-slate-600"
                   value={profile.bank}
                   onChange={(e) => setProfile({...profile, bank: e.target.value})}
                 >
@@ -301,10 +343,14 @@ const SmartCardAdvisor = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {getRecommendations.map((card, idx) => (
-              <div key={card.id} className={`bg-white rounded-[2rem] border-2 ${idx === 0 ? 'border-emerald-400 ring-8 ring-emerald-50' : 'border-slate-200'} p-1 relative shadow-sm hover:shadow-xl transition-all flex flex-col`}>
-                {idx === 0 && (
+              <div key={card.id || card.cardId || idx} className={`bg-white rounded-[2rem] border-2 ${idx === 0 ? 'border-emerald-400 ring-8 ring-emerald-50' : 'border-slate-200 ring-4 ring-slate-50'} p-1 relative shadow-sm hover:shadow-xl transition-all flex flex-col`}>
+                {idx === 0 ? (
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg flex items-center gap-2 z-10 whitespace-nowrap">
                     <Sparkles size={12} /> AI Recommended Top Choice
+                  </div>
+                ) : (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-md flex items-center gap-2 z-10 whitespace-nowrap">
+                    Alternative Option {idx}
                   </div>
                 )}
 
@@ -315,7 +361,7 @@ const SmartCardAdvisor = () => {
                     </div>
                     <div className="text-right">
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Bank Name</p>
-                       <p className="text-sm font-extrabold text-slate-900 leading-none">{card.bank}</p>
+                       <p className="text-sm font-extrabold text-slate-900 leading-none">{card.bank || card.provider || card.bankName || '—'}</p>
                     </div>
                   </div>
 
@@ -324,7 +370,7 @@ const SmartCardAdvisor = () => {
                   </h3>
                   
                   <div className="mb-4">
-                     <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded-md uppercase">Best for {card.bestFor.split(' & ')[0]}</span>
+                     <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded-md uppercase">Best for {(card.bestFor || card.name || 'Your Profile').split(' & ')[0]}</span>
                   </div>
 
                   <div className="space-y-4 mb-6">
@@ -345,7 +391,7 @@ const SmartCardAdvisor = () => {
                     <div>
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Annual Fee</p>
                        <p className="text-sm font-black text-slate-900">
-                         {card.fee === 0 ? 'Free' : `₹${card.fee}`}
+                         {(() => { const f = card.annualFee ?? card.fee; return f === 0 ? 'Free' : `₹${f ?? '—'}`; })()}
                        </p>
                     </div>
                     {category === 'forex' && (
@@ -364,12 +410,23 @@ const SmartCardAdvisor = () => {
                 </div>
 
                 <div className="p-4">
-                   <button 
-                     onClick={() => window.open(getApplyLink(card.bank, card.name), '_blank', 'noopener,noreferrer')}
-                     className="w-full bg-slate-900 hover:bg-black text-white py-3 rounded-2xl font-bold transition-all shadow-md group cursor-pointer"
-                   >
-                      Apply Now <ChevronRight size={16} className="inline group-hover:translate-x-1 transition-transform" />
-                   </button>
+                   {appliedCards[card.cardId || card.id] ? (
+                     <div className="w-full bg-emerald-50 border border-emerald-200 text-emerald-700 py-3 rounded-2xl font-bold text-center text-sm">
+                       <CheckCircle2 size={16} className="inline mr-2" />
+                       {appliedCards[card.cardId || card.id].message || 'Application submitted!'}
+                     </div>
+                   ) : (
+                     <button
+                       onClick={async () => {
+                         const cardKey = card.cardId || card.id;
+                         const result = await applyCard(cardKey, card.name);
+                         setAppliedCards(prev => ({ ...prev, [cardKey]: result }));
+                       }}
+                       className="w-full bg-slate-900 hover:bg-black text-white py-3 rounded-2xl font-bold transition-all shadow-md group cursor-pointer"
+                     >
+                       Apply Now <ChevronRight size={16} className="inline group-hover:translate-x-1 transition-transform" />
+                     </button>
+                   )}
                 </div>
               </div>
             ))}

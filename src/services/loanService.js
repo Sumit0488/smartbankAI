@@ -1,74 +1,65 @@
-/**
- * src/services/loanService.js
- * Frontend service calling real GraphQL backend for loans.
- */
-
 import { graphqlRequest } from '../config/api';
-import { loans } from '../data/mockData';
 
-const mapLoan = (l) => ({
-  id: l._id || l.loan_id,
-  type: l.loan_type,
-  amount: l.loan_amount,
-  interestRate: l.interest_rate,
-  tenure: l.tenure,
-  emi: l.emi,
-  totalPayable: l.total_payable,
-  status: l.status,
-  bankName: l.bank_name,
-  appliedDate: l.applied_at || l.createdAt
-});
+export const listLoanOptions = async () => {
+  try {
+    const data = await graphqlRequest(`query { listLoanOptions { type interestRate approvalTime maxAmount } }`);
+    return data?.listLoanOptions || [];
+  } catch (e) {
+    console.warn('Backend listLoanOptions failed', e);
+    return [
+      { type: 'PERSONAL', interestRate: '10.5%', approvalTime: '24 Hours', maxAmount: 1500000 },
+      { type: 'HOME', interestRate: '8.5%', approvalTime: '5-7 Days', maxAmount: 50000000 },
+    ];
+  }
+};
+
+export const listBanks = async (type) => {
+  try {
+    const data = await graphqlRequest(
+      `query($type: String!) { listBanks(type: $type) { id bankName interestRate approvalTime maxLoanAmount } }`,
+      { type }
+    );
+    return data?.listBanks || [];
+  } catch (e) {
+    console.warn('Backend listBanks failed', e);
+    return [];
+  }
+};
 
 export const getLoans = async () => {
   try {
-    const data = await graphqlRequest(`query { getAllLoans { _id loan_id loan_type loan_amount interest_rate tenure emi total_payable status bank_name createdAt } }`);
-    if (data?.getAllLoans?.length) return data.getAllLoans.map(mapLoan);
-  } catch (e) { console.warn('Backend fetch failed, using mock', e); }
-  return loans;
+    const data = await graphqlRequest(
+      `query { listLoans { items { loanId loanType loanAmount interestRate tenure emi totalPayable status bankName appliedAt } total } }`
+    );
+    return data?.listLoans?.items || [];
+  } catch (e) {
+    console.warn('Backend listLoans failed', e);
+    return [];
+  }
 };
 
-export const getLoanById = async (id) => {
-  const all = await getLoans();
-  return all.find(l => l.id === id) || null;
-};
+// Alias used by apiService
+export const createLoan = async (input) => applyLoan(input);
 
-export const getLoansByType = async (type) => {
-  const all = await getLoans();
-  return all.filter(l => l.type === type);
-};
-
-export const getLoanEligibility = async (monthlyIncome, emiAmount) => {
-  // If we had a specific backend for this we could call it, otherwise evaluate locally
-  const maxEmi = monthlyIncome * 0.4;
-  return {
-    isEligible: emiAmount <= maxEmi,
-    maxEmi: Math.round(maxEmi),
-    message: emiAmount <= maxEmi
-      ? 'You can comfortably afford this EMI.'
-      : `This EMI exceeds 40% of your income. Max recommended: ₹${Math.round(maxEmi).toLocaleString()}`,
+export const applyLoan = async (input) => {
+  // Normalize field names to match backend ApplyLoanInput schema
+  const normalized = {
+    loanAmount: Number(input.loanAmount || input.amount || 0),
+    loanType: (input.loanType || input.type || 'PERSONAL').toString().toUpperCase(),
+    // Backend tenure is in months; UI passes tenure in years
+    tenure: Number(input.tenure || 1) * 12,
+    interestRate: parseFloat(String(input.interestRate || '10.5').replace('%', '')) || 10.5,
+    bankName: input.bankName || input.bank || undefined,
+    notes: input.notes || undefined,
   };
-};
-
-export const createLoan = async (loanData) => {
   try {
-    const data = await graphqlRequest(`
-      mutation($input: ApplyLoanInput!) {
-        applyLoan(input: $input) { _id loan_id status }
-      }
-    `, {
-      input: {
-        loan_type: loanData.type || 'Personal Loan',
-        loan_amount: Number(loanData.amount) || 0,
-        interest_rate: Number(loanData.interestRate) || 10,
-        tenure: Number(loanData.tenure) || 12,
-        bank_name: loanData.bankName || 'SmartBank',
-        notes: JSON.stringify(loanData)
-      }
-    });
-    if (data?.applyLoan) {
-      return { success: true, message: 'Loan submitted via GraphQL', applicationId: data.applyLoan.loan_id };
-    }
-  } catch (e) { console.warn('Backend loan create failed', e); }
-  
-  return { success: true, message: 'Mock Loan application submitted successfully.', applicationId: `LN-${Date.now()}` };
+    const data = await graphqlRequest(
+      `mutation($input: ApplyLoanInput!) { applyLoan(input: $input) { success message applicationId } }`,
+      { input: normalized }
+    );
+    return data?.applyLoan;
+  } catch (e) {
+    console.warn('Backend applyLoan failed', e);
+    return { success: true, message: 'Application Submitted (Mock)', applicationId: 'APP-MOCK-' + Date.now() };
+  }
 };

@@ -1,0 +1,215 @@
+"""Available loan product categories"""
+enum LoanType {
+  CAR
+  EDUCATION
+  HOME
+  PERSONAL
+}
+
+"""Metadata for a loan product category"""
+type LoanOption {
+  type: String!
+  interestRate: String!
+  approvalTime: String!
+  maxAmount: Float!
+}
+
+"""Metadata for a bank offering loans"""
+type BankOption {
+  id: ID!
+  bankName: String!
+  interestRate: String!
+  approvalTime: String!
+  maxLoanAmount: String!
+}
+
+"""Result of a simulated loan application"""
+type LoanResult {
+  success: Boolean!
+  message: String!
+  applicationId: String
+}
+
+"""Current lifecycle status of a loan application or active loan"""
+enum LoanStatus {
+  """Loan application has been approved by credit team"""
+  APPROVED
+  """Loan has been fully repaid and account closed"""
+  CLOSED
+  """Funds have been transferred to the borrower"""
+  DISBURSED
+  """Application is under review"""
+  PENDING
+  """Application was denied after review"""
+  REJECTED
+  """Loan cancelled by the applicant before approval"""
+  CANCELLED
+}
+
+"""A loan record tracking application and repayment status"""
+type Loan {
+  """Timestamp of initial application"""
+  appliedAt: DateTime!
+  """The bank or financial institution providing the loan"""
+  bankName: String
+  """Timestamp of record creation"""
+  createdAt: DateTime!
+  """Calculated monthly installment amount"""
+  emi: Float!
+  """Unique database identifier"""
+  id: ID!
+  """Annual interest rate applied to the loan"""
+  interestRate: Float!
+  """Principal amount requested or disbursed"""
+  loanAmount: Float!
+  """Business-friendly unique loan identifier"""
+  loanId: String!
+  """The category of the loan"""
+  loanType: LoanType!
+  """Optional notes or internal remarks"""
+  notes: String
+  """Reason provided for application rejection (if status is REJECTED)"""
+  rejectionReason: String
+  """Current tracking status"""
+  status: LoanStatus!
+  """Number of months for repayment"""
+  tenure: Int!
+  """Total interest cost over the loan term"""
+  totalInterest: Float!
+  """Total amount to be repaid (principal + interest)"""
+  totalPayable: Float!
+  """Timestamp of last record modification"""
+  updatedAt: DateTime!
+  """Resolved owner user object"""
+  user: User
+  """Reference to the owner user ID"""
+  userId: String!
+}
+
+"""Paginated list of loans with metadata"""
+type LoanListResponse {
+  """True if a next page of results exists"""
+  hasNextPage: Boolean!
+  """True if a previous page of results exists"""
+  hasPrevPage: Boolean!
+  """Array of current page loan items"""
+  items: [Loan!]!
+  """Number of items requested per page"""
+  limit: Int!
+  """Current 1-based page index"""
+  page: Int!
+  """Total count of items matching the query"""
+  total: Int!
+  """Total number of pages available"""
+  totalPages: Int!
+}
+
+"""Input data for a new loan application"""
+input ApplyLoanInput {
+  """Target bank for the application"""
+  bankName: String
+  """Requested annual interest rate"""
+  interestRate: Float!
+  """Requested principal amount"""
+  loanAmount: Float!
+  """The category of loan being applied for"""
+  loanType: LoanType!
+  """Optional notes for the application"""
+  notes: String
+  """Requested repayment term in months"""
+  tenure: Int!
+}
+
+"""Input data for updating a pending loan application"""
+input UpdateLoanInput {
+  """Update target bank"""
+  bankName: String
+  """Update annual interest rate"""
+  interestRate: Float
+  """Update principal amount"""
+  loanAmount: Float
+  """Update application notes"""
+  notes: String
+  """Update repayment term in months"""
+  tenure: Int
+}
+
+extend type Query {
+  """Get a loan by its loanId"""
+  getLoan(
+    """The business-friendly loan identifier"""
+    loanId: ID!
+  ): Loan
+
+  """List loans - users see their own; admins can filter by userId and status"""
+  listLoans(
+    """Filter by owner user ID (Admin only)"""
+    userId: ID
+    """Filter by current status"""
+    status: LoanStatus
+    """Filter by loan category"""
+    loanType: LoanType
+    """Page number (1-based)"""
+    page: Int
+    """Items per page"""
+    limit: Int
+    """Sort criteria"""
+    sort: SortInput
+  ): LoanListResponse!
+
+  """List available loan options [NEW]"""
+  listLoanOptions: [LoanOption!]!
+
+  """List banks for a specific loan type [NEW]"""
+  listBanks(type: String!): [BankOption!]!
+}
+
+extend type Mutation {
+  """Apply for a new loan (requires auth)"""
+  applyLoan(
+    """The loan application data"""
+    input: ApplyLoanInput!
+  ): LoanResult!
+
+  """Update a pending loan application (requires auth, only PENDING loans)"""
+  updateLoan(
+    """The business-friendly loan identifier"""
+    loanId: ID!
+    """Field updates"""
+    input: UpdateLoanInput!
+  ): Loan!
+
+  """Approve a loan (admin only) - triggers email + SMS notification"""
+  approveLoan(
+    """The business-friendly loan identifier"""
+    loanId: ID!
+  ): Loan!
+
+  """Reject a loan (admin only) - triggers notification"""
+  rejectLoan(
+    """The business-friendly loan identifier"""
+    loanId: ID!
+    """Numerical or text reason for rejection"""
+    reason: String
+  ): Loan!
+
+  """Mark a loan as disbursed (admin only)"""
+  disburseLoan(
+    """The business-friendly loan identifier"""
+    loanId: ID!
+  ): Loan!
+
+  """Close a fully repaid loan"""
+  closeLoan(
+    """The business-friendly loan identifier"""
+    loanId: ID!
+  ): Loan!
+
+  """Cancel a PENDING loan application (owner or admin)"""
+  cancelLoan(
+    """The business-friendly loan identifier"""
+    loanId: ID!
+    """Optional reason for cancellation"""
+    reason: String
+  ): Loan!
+}

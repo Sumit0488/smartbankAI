@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trash2, ExternalLink, ChevronRight, Info } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+// import from framer-motion;
 
 const InvestmentList = ({ investments, onDeleteInvestment }) => {
   return (

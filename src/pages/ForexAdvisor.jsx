@@ -2,7 +2,7 @@ import React from 'react';
 import CurrencyConverter from '../components/forex/CurrencyConverter';
 import TransferCalculator from '../components/forex/TransferCalculator';
 import ForexInsights from '../components/forex/ForexInsights';
-import { Globe, ShieldCheck, Zap } from 'lucide-react';
+import { Globe, ShieldCheck, Zap, User } from 'lucide-react';
 
 const ForexAdvisor = () => {
   return (
@@ -20,9 +20,13 @@ const ForexAdvisor = () => {
 
         <div className="flex items-center gap-2">
             <div className="flex -space-x-2">
-                {[1,2,3].map(i => (
-                    <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 overflow-hidden shadow-sm">
-                        <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="user" />
+                {[
+                  'bg-emerald-400',
+                  'bg-indigo-400',
+                  'bg-rose-400',
+                ].map((bg, i) => (
+                    <div key={i} className={`w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center ${bg}`}>
+                        <User size={13} className="text-white" />
                     </div>
                 ))}
             </div>

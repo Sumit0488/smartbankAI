@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Landmark, Upload, CheckCircle2, X, AlertTriangle, User, FileText, Camera } from 'lucide-react';
 
 const AccountCreationForm = ({ onClose }) => {
@@ -22,14 +22,21 @@ const AccountCreationForm = ({ onClose }) => {
     'Address Proof (optional)': false
   });
 
+  // One hidden file input ref per document
+  const fileInputRefs = useRef({});
+
   const handleNext = () => setStep(step + 1);
   const handleBack = () => setStep(step - 1);
-  
-  const handleDocumentUpload = (docName) => {
-    // Simulate an upload delay
-    setTimeout(() => {
+
+  const handleCardClick = (docName, isUploaded) => {
+    if (isUploaded) return;
+    fileInputRefs.current[docName]?.click();
+  };
+
+  const handleFileChange = (docName, e) => {
+    if (e.target.files && e.target.files.length > 0) {
       setDocuments(prev => ({ ...prev, [docName]: true }));
-    }, 600);
+    }
   };
 
   const requiredDocumentsUploaded = documents['Aadhaar Card Upload'] && documents['PAN Card Upload'] && documents['Selfie Photo Upload'];
@@ -218,35 +225,43 @@ const AccountCreationForm = ({ onClose }) => {
                {Object.keys(documents).map((doc) => {
                   const isUploaded = documents[doc];
                   const isOptional = doc.includes('optional');
-                  
+
                   return (
-                    <div 
-                      key={doc} 
-                      onClick={() => !isUploaded && handleDocumentUpload(doc)}
-                      className={`border-2 border-dashed rounded-xl p-4 flex flex-col justify-center transition-all ${
-                        isUploaded 
-                          ? 'border-emerald-500 bg-emerald-50/50 cursor-default' 
-                          : 'border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer group'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`font-bold text-sm ${isUploaded ? 'text-emerald-800' : 'text-slate-700 group-hover:text-indigo-700'}`}>
-                          {doc}
-                        </span>
-                        {isUploaded ? (
-                           <CheckCircle2 size={20} className="text-emerald-500" />
-                        ) : (
-                          // Determine icon based on document name
-                          doc.includes('Selfie') ? <Camera size={18} className="text-slate-400 group-hover:text-indigo-500" /> :
-                           <Upload size={18} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                        )}
-                      </div>
-                      <div className="flex items-center">
-                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                           isUploaded ? 'bg-emerald-200 text-emerald-800' : isOptional ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-600'
-                         }`}>
-                           {isUploaded ? 'Uploaded ✓' : isOptional ? 'Optional' : 'Required ⚠'}
-                         </span>
+                    <div key={doc}>
+                      {/* Hidden file input — triggered programmatically */}
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        ref={(el) => { fileInputRefs.current[doc] = el; }}
+                        onChange={(e) => handleFileChange(doc, e)}
+                      />
+                      <div
+                        onClick={() => handleCardClick(doc, isUploaded)}
+                        className={`border-2 border-dashed rounded-xl p-4 flex flex-col justify-center transition-all ${
+                          isUploaded
+                            ? 'border-emerald-500 bg-emerald-50/50 cursor-default'
+                            : 'border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer group'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`font-bold text-sm ${isUploaded ? 'text-emerald-800' : 'text-slate-700 group-hover:text-indigo-700'}`}>
+                            {doc}
+                          </span>
+                          {isUploaded ? (
+                             <CheckCircle2 size={20} className="text-emerald-500" />
+                          ) : (
+                            doc.includes('Selfie') ? <Camera size={18} className="text-slate-400 group-hover:text-indigo-500" /> :
+                             <Upload size={18} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                          )}
+                        </div>
+                        <div className="flex items-center">
+                           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                             isUploaded ? 'bg-emerald-200 text-emerald-800' : isOptional ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-600'
+                           }`}>
+                             {isUploaded ? 'Uploaded ✓' : isOptional ? 'Optional' : 'Required ⚠'}
+                           </span>
+                        </div>
                       </div>
                     </div>
                   );

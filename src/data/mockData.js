@@ -77,6 +77,7 @@ export const creditCards = [
   {
     id: 'hdfc-millennia',
     name: 'HDFC Millennia Credit Card',
+    bank: 'HDFC Bank',
     bestFor: 'Cashback on online shopping',
     category: 'Online Shopping',
     fee: 1000,
@@ -95,6 +96,7 @@ export const creditCards = [
   {
     id: 'sbi-simplyclick',
     name: 'SBI SimplyCLICK Credit Card',
+    bank: 'SBI',
     bestFor: 'Amazon and Flipkart users',
     category: 'Amazon Users',
     fee: 499,
@@ -113,6 +115,7 @@ export const creditCards = [
   {
     id: 'axis-neo',
     name: 'Axis Neo Credit Card',
+    bank: 'Axis Bank',
     bestFor: 'Discounts on online services',
     category: 'Beginners',
     fee: 250,
@@ -131,6 +134,7 @@ export const creditCards = [
   {
     id: 'sbi-prime',
     name: 'SBI PRIME Credit Card',
+    bank: 'SBI',
     bestFor: 'Travel and premium benefits',
     category: 'Travel',
     fee: 2999,

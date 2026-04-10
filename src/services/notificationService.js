@@ -1,37 +1,63 @@
 /**
  * src/services/notificationService.js
- * Frontend service calling real GraphQL backend for notifications.
+ * Calls real GraphQL backend for notifications.
  */
-
 import { graphqlRequest } from '../config/api';
 
-const mockNotifications = [
-  { id: '1', title: 'Salary Credited', message: '₹30,000 credited to HDFC account', type: 'success', date: '2026-03-09T09:00:00Z', isRead: false },
-  { id: '2', title: 'High Expense Alert', message: 'You spent 40% of budget on Dining', type: 'warning', date: '2026-03-08T14:30:00Z', isRead: false },
-  { id: '3', title: 'Credit Card Bill', message: 'HDFC Regalia bill of ₹12,450 is due', type: 'info', date: '2026-03-05T10:00:00Z', isRead: true },
-];
+const NOTIF_FIELDS = 'id notificationId type title message read createdAt';
 
-export const getNotifications = async () => mockNotifications;
-
-export const getUnreadCount = async () => mockNotifications.filter(n => !n.isRead).length;
-
-export const markAsRead = async (id) => ({ success: true });
-
-export const markAllAsRead = async () => ({ success: true });
-
-export const sendSystemNotification = async (userId, title, message, type = 'info') => {
+export const getNotifications = async () => {
   try {
-    await graphqlRequest(`
-      mutation($input: SendEmailInput!) {
-        sendEmailNotification(input: $input) { success message }
-      }
-    `, {
-      input: {
-        to: 'user@smartbank.ai',
-        subject: title,
-        text: message
-      }
-    });
-  } catch (e) { console.warn('Backend notification trigger failed', e); }
-  return { success: true };
+    const data = await graphqlRequest(`query { getNotifications { ${NOTIF_FIELDS} } }`);
+    if (data?.getNotifications) return data.getNotifications;
+  } catch (e) {
+    console.warn('[notificationService] getNotifications failed', e);
+  }
+  return [];
+};
+
+export const getUnreadCount = async () => {
+  try {
+    const notifs = await getNotifications();
+    return notifs.filter(n => !n.read).length;
+  } catch {
+    return 0;
+  }
+};
+
+export const markAsRead = async (notificationId) => {
+  try {
+    const data = await graphqlRequest(
+      `mutation($notificationId: ID!) { markNotificationRead(notificationId: $notificationId) { ${NOTIF_FIELDS} } }`,
+      { notificationId }
+    );
+    return data?.markNotificationRead;
+  } catch (e) {
+    console.warn('[notificationService] markAsRead failed', e);
+    return { success: false };
+  }
+};
+
+export const markAllAsRead = async () => {
+  try {
+    const data = await graphqlRequest(
+      `mutation { markAllNotificationsRead { success message } }`
+    );
+    return data?.markAllNotificationsRead;
+  } catch (e) {
+    console.warn('[notificationService] markAllAsRead failed', e);
+    return { success: false };
+  }
+};
+
+export const getUserActivity = async () => {
+  try {
+    const data = await graphqlRequest(
+      `query { getUserActivity { id type title amount description createdAt } }`
+    );
+    return data?.getUserActivity || [];
+  } catch (e) {
+    console.warn('[notificationService] getUserActivity failed', e);
+    return [];
+  }
 };

@@ -1,0 +1,54 @@
+"""Direction of a financial transaction"""
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+"""A money movement record linked to the authenticated user"""
+type Transaction {
+  id:            ID!
+  transactionId: String!
+  userId:        String!
+  amount:        Float!
+  type:          TransactionType!
+  description:   String
+  createdAt:     DateTime!
+  updatedAt:     DateTime!
+}
+
+"""Paginated list of transactions"""
+type TransactionListResponse {
+  items:       [Transaction!]!
+  total:       Int!
+  page:        Int!
+  limit:       Int!
+  totalPages:  Int!
+  hasNextPage: Boolean!
+  hasPrevPage: Boolean!
+}
+
+"""Input for creating a transaction"""
+input CreateTransactionInput {
+  amount:      Float!
+  type:        TransactionType!
+  description: String
+}
+
+extend type Query {
+  """Returns only the calling user's transactions (auth required).
+     Admin may pass userId to view any user's transactions."""
+  myTransactions(
+    page:   Int
+    limit:  Int
+    type:   TransactionType
+    userId: ID
+  ): TransactionListResponse!
+}
+
+extend type Mutation {
+  """Create a transaction — userId is taken from the JWT, never from the client"""
+  createTransaction(input: CreateTransactionInput!): Transaction!
+
+  """Delete own transaction (admin can delete any)"""
+  deleteTransaction(transactionId: ID!): DeleteResult!
+}

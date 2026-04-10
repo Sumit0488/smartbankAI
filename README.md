@@ -17,14 +17,15 @@ A modern, AI-powered frontend web application that helps users make better finan
 ### Folder Structure
 ```text
 src/
-├── components/   (39 files)
-├── pages/        (11 files)
+├── components/   (45 files)
+├── pages/        (13 files)
 ├── services/     (11 files)
 ├── hooks/        (7 files)
 └── utils/        (3 files)
 ```
 
 ### Application Routes
+- `/login`
 - `/`
 - `dashboard`
 - `assistant`

@@ -18,10 +18,15 @@ const CurrencyConverter = () => {
   }, []);
 
   useEffect(() => {
-    if (rates[from] && rates[to]) {
-      const inBase = amount / (from === 'INR' ? 1 : rates[from]);
-      const final = inBase * (to === 'INR' ? 1 : rates[to]);
-      setResult(final);
+    const fromRate = from === 'INR' ? 1 : rates[from];
+    const toRate   = to   === 'INR' ? 1 : rates[to];
+    if (fromRate && toRate && Number(amount) > 0) {
+      // Step 1: convert source amount to INR equivalent
+      // Step 2: convert INR equivalent to target currency
+      const amountInINR = Number(amount) * fromRate;
+      setResult(amountInINR / toRate);
+    } else {
+      setResult(0);
     }
   }, [amount, from, to, rates]);
 
@@ -59,7 +64,6 @@ const CurrencyConverter = () => {
               onChange={(e) => setFrom(e.target.value)}
             >
               {Object.keys(rates).map(c => <option key={c} value={c}>{c}</option>)}
-              <option value="INR">INR</option>
             </select>
           </div>
 
@@ -78,7 +82,6 @@ const CurrencyConverter = () => {
               onChange={(e) => setTo(e.target.value)}
             >
               {Object.keys(rates).map(c => <option key={c} value={c}>{c}</option>)}
-              <option value="INR">INR</option>
             </select>
           </div>
         </div>
@@ -92,7 +95,12 @@ const CurrencyConverter = () => {
             <span className="text-sm font-black text-slate-400">{to}</span>
           </div>
           <div className="mt-2 text-[10px] font-bold text-slate-400 flex items-center gap-1">
-             1 {from} = {(result/ (amount || 1)).toFixed(4)} {to}
+            {(() => {
+              const fromRate = from === 'INR' ? 1 : (rates[from] || 1);
+              const toRate   = to   === 'INR' ? 1 : (rates[to]   || 1);
+              const unitRate = fromRate / toRate;
+              return `1 ${from} = ${unitRate.toFixed(4)} ${to}`;
+            })()}
           </div>
         </div>
       </div>

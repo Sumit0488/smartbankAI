@@ -1,0 +1,38 @@
+enum NotificationType {
+  LOAN
+  INVESTMENT
+  EXPENSE
+  CARD
+  FOREX
+  SYSTEM
+}
+
+type Notification {
+  id: ID!
+  notificationId: ID!
+  userId: ID!
+  type: NotificationType!
+  title: String!
+  message: String!
+  read: Boolean!
+  createdAt: DateTime!
+}
+
+type ActivityItem {
+  id: ID!
+  type: String!
+  title: String!
+  amount: Float
+  description: String!
+  createdAt: DateTime!
+}
+
+extend type Query {
+  getNotifications: [Notification!]!
+  getUserActivity: [ActivityItem!]!
+}
+
+extend type Mutation {
+  markNotificationRead(notificationId: ID!): Notification!
+  markAllNotificationsRead: DeleteResult!
+}

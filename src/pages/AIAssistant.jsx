@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, User, Bot, Globe, Mic, MicOff, Send, PlusCircle } from 'lucide-react';
 import AccountCreationForm from '../components/shared/AccountCreationForm';
 import { callGroqAPI } from '../services/aiService';
+import { createBankApplication } from '../services/bankService';
 import ProfileSelectionModal from '../components/ai-assistant/ProfileSelectionModal';
 import ChatInputArea from '../components/ai-assistant/ChatInputArea';
 import QuickActions from '../components/ai-assistant/QuickActions';
@@ -14,6 +15,20 @@ const quickActions = [
   "Investment Advice",
   "Savings Plan",
   "Compare Banks"
+];
+
+const STUDENT_ACCOUNTS = [
+  { id: 's1', bankName: 'SBI',           accountType: 'Zero Balance Account',      tag: 'Popular',   benefits: ['No minimum balance required', 'Free RuPay debit card', 'YONO mobile banking'] },
+  { id: 's2', bankName: 'Kotak Mahindra Bank', accountType: 'Kotak 811 Digital Account', tag: 'Digital',   benefits: ['Instant online opening', '4% savings interest', 'Zero annual fee'] },
+  { id: 's3', bankName: 'HDFC Bank',     accountType: 'Basic Savings Account',      tag: 'Trusted',   benefits: ['No minimum balance', 'NetBanking & mobile app', 'Free IMPS transfers'] },
+  { id: 's4', bankName: 'Axis Bank',     accountType: 'ASAP Digital Account',       tag: 'Fast',      benefits: ['Open in 7 minutes', 'Free VISA debit card', 'Instant mobile banking'] },
+];
+
+const PROFESSIONAL_ACCOUNTS = [
+  { id: 'p1', bankName: 'HDFC Bank',     accountType: 'Salary Account',             tag: 'Best Value', benefits: ['Zero balance on salary credit', 'Lounge access', 'Free credit card'] },
+  { id: 'p2', bankName: 'ICICI Bank',    accountType: 'Salary Account',             tag: 'Popular',    benefits: ['iMobile Pay app', 'Instant overdraft facility', 'Cashback on spends'] },
+  { id: 'p3', bankName: 'Axis Bank',     accountType: 'Priority Salary Account',    tag: 'Premium',    benefits: ['Priority banking', 'Preferential loan rates', 'Dedicated RM'] },
+  { id: 'p4', bankName: 'State Bank of India', accountType: 'SBI Salary Package',   tag: 'Trusted',    benefits: ['Largest branch network', 'PM insurance schemes', 'Free locker (1st year)'] },
 ];
 
 
@@ -86,6 +101,46 @@ const AIAssistant = () => {
     setShowProfileModal(false);
   };
 
+  const handleApplyCard = async (card) => {
+    // Optimistically mark the card as applied in the message list
+    setMessages(prev => prev.map(msg => {
+      if (!msg.accountCards) return msg;
+      return {
+        ...msg,
+        accountCards: msg.accountCards.map(c =>
+          c.id === card.id ? { ...c, applied: true, applicationId: '...' } : c
+        ),
+      };
+    }));
+
+    const result = await createBankApplication({
+      bankName: card.bankName,
+      accountType: card.accountType,
+    });
+
+    const appId = result?.application?.applicationId || 'N/A';
+
+    // Update the card with the real application ID
+    setMessages(prev => prev.map(msg => {
+      if (!msg.accountCards) return msg;
+      return {
+        ...msg,
+        accountCards: msg.accountCards.map(c =>
+          c.id === card.id ? { ...c, applied: true, applicationId: appId } : c
+        ),
+      };
+    }));
+
+    // Add confirmation chat message
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      sender: 'ai',
+      text: `✅ Your application for ${card.accountType} at ${card.bankName} has been submitted successfully!\n\n📋 Application Status: Pending\n🔖 Reference ID: ${appId}\n\nThe bank will review your application and contact you within 2–3 business days. Is there anything else I can help you with?`,
+    }]);
+
+    setStudentBankFlowState('idle');
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -121,7 +176,43 @@ const AIAssistant = () => {
       }
       
       if (text === "open bank account" || (text.includes("open") && text.includes("bank")) || text.includes("create account")) {
-         setShowAccountModal(true);
+         setStudentBankFlowState('asking_user_type');
+         setMessages(prev => [...prev, {
+           id: Date.now(),
+           sender: 'ai',
+           text: "I'd love to help you open a bank account! 🏦\n\nTo recommend the best account for you, could you tell me your profile?",
+           optionsList: ['Student', 'Working Professional'],
+         }]);
+         setIsTyping(false);
+         return;
+      }
+
+      // Handle user type selection for bank account flow
+      if (studentBankFlowState === 'asking_user_type') {
+         if (text === 'student' || text.includes('student')) {
+           setStudentBankFlowState('showing_accounts');
+           setMessages(prev => [...prev, {
+             id: Date.now(),
+             sender: 'ai',
+             text: "Great! Here are the best zero-balance accounts for students 🎓\n\nClick \"Apply Now\" on any card to submit your application instantly:",
+             accountCards: STUDENT_ACCOUNTS,
+           }]);
+         } else if (text === 'working professional' || text.includes('professional') || text.includes('working')) {
+           setStudentBankFlowState('showing_accounts');
+           setMessages(prev => [...prev, {
+             id: Date.now(),
+             sender: 'ai',
+             text: "Perfect! Here are the top salary accounts for working professionals 💼\n\nClick \"Apply Now\" to submit your application:",
+             accountCards: PROFESSIONAL_ACCOUNTS,
+           }]);
+         } else {
+           setMessages(prev => [...prev, {
+             id: Date.now(),
+             sender: 'ai',
+             text: "Please select your profile type:",
+             optionsList: ['Student', 'Working Professional'],
+           }]);
+         }
          setIsTyping(false);
          return;
       }
@@ -401,7 +492,7 @@ const AIAssistant = () => {
           ) : (
              <>
                 {messages.map((msg) => (
-                  <ChatMessage key={msg.id} msg={msg} handleSend={handleSend} />
+                  <ChatMessage key={msg.id} msg={msg} handleSend={handleSend} onApplyCard={handleApplyCard} />
                 ))}
                 
                 <TypingIndicator isTyping={isTyping} />

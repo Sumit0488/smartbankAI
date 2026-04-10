@@ -1,0 +1,39 @@
+"""JWT authentication response — returned on login and registration"""
+type AuthPayload {
+  """Signed JWT token — send as: Authorization: Bearer <token>"""
+  token: String!
+  """The authenticated user record"""
+  user: User!
+}
+
+"""Input for self-service user registration"""
+input RegisterUserInput {
+  """Full legal name"""
+  name: String!
+  """Email address (used as login identifier)"""
+  email: String!
+  """Password — min 8 chars, must include uppercase, lowercase, digit and symbol"""
+  password: String!
+  """Contact phone number (E.164 format, e.g. +919876543210)"""
+  phone: String
+  """Professional classification"""
+  profileType: UserProfileType
+  """Annual or monthly salary"""
+  salary: Float
+}
+
+extend type Mutation {
+  """Register a new user account — returns JWT token immediately"""
+  registerUser(
+    """Registration details"""
+    input: RegisterUserInput!
+  ): AuthPayload!
+
+  """Login with email + password — returns JWT token"""
+  loginUser(
+    """Registered email address"""
+    email: String!
+    """Account password"""
+    password: String!
+  ): AuthPayload!
+}

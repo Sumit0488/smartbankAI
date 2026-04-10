@@ -35,9 +35,9 @@ const FinancialGoals = ({ goals: initialGoals }) => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <Award className="text-amber-500" size={20} /> Financial Goals
         </h3>
         <button 
@@ -81,7 +81,7 @@ const FinancialGoals = ({ goals: initialGoals }) => {
            const aiPlan = calculateGoalPlan(goal.targetAmount, goal.currentAmount, goal.durationMonths);
 
            return (
-             <div key={goal.id} className="border border-slate-100 p-4 rounded-xl hover:border-indigo-100 transition-colors group relative overflow-hidden">
+             <div key={goal.id} className="border border-slate-100 dark:border-slate-700 p-4 rounded-xl hover:border-indigo-100 dark:hover:border-indigo-700 transition-colors group relative overflow-hidden bg-white dark:bg-slate-800/50">
                {isComplete && <div className="absolute inset-0 bg-emerald-50/50 z-0 pointer-events-none" />}
                
                <div className="relative z-10">

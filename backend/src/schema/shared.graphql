@@ -1,0 +1,77 @@
+"ISO-8601 encoded UTC date string"
+scalar DateTime
+
+"Arbitrary JSON object or array"
+scalar JSON
+
+"""Pagination metadata following the Relay specification"""
+type PageInfo {
+  """When paginating forwards, the cursor to continue"""
+  endCursor: String
+  """When paginating forwards, are there more items?"""
+  hasNextPage: Boolean!
+  """When paginating backwards, are there more items?"""
+  hasPreviousPage: Boolean!
+  """When paginating backwards, the cursor to continue"""
+  startCursor: String
+}
+
+"""Result returned by single-item delete operations"""
+type DeleteResult {
+  """Success message or error detail"""
+  message: String!
+  """True if the operation was successful"""
+  success: Boolean!
+}
+
+"""Result returned by bulk delete operations"""
+type BulkDeleteResult {
+  """Number of records affected by the operation"""
+  affected: Int!
+  """Summary message of the bulk operation"""
+  message: String!
+  """True if the overall operation was successful"""
+  success: Boolean!
+}
+
+"""Generic sort options for list queries"""
+input SortInput {
+  """Sort direction (ASC or DESC)"""
+  direction: SortDirection!
+  """The field name to sort by"""
+  field: String!
+}
+
+"""Sort order direction tokens"""
+enum SortDirection {
+  """Sort in ascending order (A-Z, 0-9)"""
+  ASC
+  """Sort in descending order (Z-A, 9-0)"""
+  DESC
+}
+
+"""Root Query type - extended by modules"""
+type Query {
+  """Internal placeholder for base Query type"""
+  placeholder: String
+  """Internal placeholder to satisfy JSON usage requirements"""
+  placeholderJson: JSON
+  """Internal placeholder to satisfy Relay PageInfo usage requirements"""
+  placeholderPageInfo: PageInfo
+  """Health check — returns service status"""
+  healthCheck: HealthCheckResult!
+}
+
+"""Service health status"""
+type HealthCheckResult {
+  status: String!
+  service: String!
+  timestamp: String!
+  version: String!
+}
+
+"""Root Mutation type - extended by modules"""
+type Mutation {
+  """Internal placeholder for base Mutation type"""
+  placeholder: String
+}

@@ -1,5 +1,16 @@
 import React from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
 
 const COLORS = ['#10b981', '#6366f1', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
@@ -7,8 +18,8 @@ const ChartsRow = ({ mockChartData, expenseData, totalExpenses }) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Balance History Area Chart */}
-      <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center justify-between">
+      <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col">
+        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center justify-between">
           <span>Balance Trajectory (6 Months)</span>
           <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">Live AI Estimation</span>
         </h3>
@@ -35,8 +46,8 @@ const ChartsRow = ({ mockChartData, expenseData, totalExpenses }) => {
       </div>
 
       {/* Expense Distribution Pie Chart */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
-        <h3 className="text-lg font-bold text-slate-800 mb-2">Expense Distribution</h3>
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col">
+        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Expense Distribution</h3>
         <p className="text-sm text-slate-500 mb-6">Where your money goes this month.</p>
         
         <div className="flex-1 min-h-[250px] w-full flex items-center justify-center relative">
@@ -65,7 +76,7 @@ const ChartsRow = ({ mockChartData, expenseData, totalExpenses }) => {
            {/* Center Label inside Pie */}
            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total</span>
-              <span className="text-xl font-black text-slate-800 tracking-tight">₹{totalExpenses.toLocaleString()}</span>
+              <span className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">₹{totalExpenses.toLocaleString()}</span>
            </div>
         </div>
         

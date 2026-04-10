@@ -1,0 +1,270 @@
+"""User authorization roles"""
+enum UserRole {
+  ADMIN
+  USER
+}
+
+"""Current operational status of a user account"""
+enum UserStatus {
+  ACTIVE
+  DELETED
+  INACTIVE
+}
+
+"""Academic or professional profile category of the user"""
+enum UserProfileType {
+  BUSINESS_OWNER
+  OTHER
+  SELF_EMPLOYED
+  STUDENT
+  WORKING_PROFESSIONAL
+}
+
+enum UserGender {
+  MALE
+  FEMALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+}
+
+enum UserRiskProfile {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+}
+
+enum UserInvestmentGoal {
+  WEALTH_CREATION
+  RETIREMENT
+  EDUCATION
+  HOME
+  EMERGENCY_FUND
+  OTHER
+}
+
+enum UserKycStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+enum UserSpendingPattern {
+  FRUGAL
+  MODERATE
+  LAVISH
+}
+
+enum UserInvestmentPreference {
+  STOCKS
+  MUTUAL_FUNDS
+  FD
+  REAL_ESTATE
+  CRYPTO
+  MIXED
+}
+
+type UserAddress {
+  street:  String
+  city:    String
+  state:   String
+  pincode: String
+}
+
+type NotificationPreferences {
+  email: Boolean!
+  sms:   Boolean!
+  push:  Boolean!
+}
+
+"""Calculated financial analytics — auto-updated after expenses/investments"""
+type UserFinancialSummary {
+  totalIncome:          Float
+  totalExpenses:        Float
+  totalInvestments:     Float
+  totalSavings:         Float
+  monthlySavingsRate:   Float
+  financialHealthScore: Float
+  lastCalculated:       DateTime
+}
+
+"""AI-generated spending insights"""
+type UserAiInsights {
+  topSpendingCategory: String
+  highestExpenseMonth: String
+  savingsSuggestion:   String
+  riskAlert:           String
+}
+
+type BudgetCategories {
+  food:          Float
+  travel:        Float
+  entertainment: Float
+}
+
+type UserBudgetSettings {
+  monthlyBudget: Float
+  categories:    BudgetCategories
+}
+
+type UserInvestmentProfile {
+  riskLevel:         UserRiskProfile
+  recommendedAssets: [String!]
+  investmentGoal:    UserInvestmentGoal
+}
+
+"""A user record tracking personal and financial metadata"""
+type User {
+  id:          ID!
+  userId:      String!
+  name:        String!
+  email:       String!
+  phone:       String
+  role:        UserRole!
+  status:      UserStatus!
+  profileType: UserProfileType!
+  salary:      Float!
+  isEmailVerified: Boolean!
+  createdAt:   DateTime!
+  updatedAt:   DateTime!
+
+  # Profile Information
+  profileImage: String
+  dateOfBirth:  String
+  gender:       UserGender
+  address:      UserAddress
+  country:      String
+
+  # Security
+  lastLogin:        DateTime
+  accountLocked:    Boolean
+  twoFactorEnabled: Boolean
+
+  # Financial Profile
+  monthlyIncome:  Float
+  monthlyBudget:  Float
+  riskProfile:    UserRiskProfile
+  investmentGoal: UserInvestmentGoal
+  creditScore:    Int
+
+  # Banking Preferences
+  preferredBank:           String
+  defaultCurrency:         String
+  language:                String
+  notificationPreferences: NotificationPreferences
+
+  # AI Personalization
+  aiInsightsEnabled:    Boolean
+  spendingPattern:      UserSpendingPattern
+  investmentPreference: UserInvestmentPreference
+  financialHealthScore: Float
+
+  # KYC
+  kycStatus:    UserKycStatus
+  kycVerifiedAt: DateTime
+
+  # Financial Analytics (auto-calculated)
+  userFinancialSummary: UserFinancialSummary
+  aiInsights:           UserAiInsights
+  budgetSettings:       UserBudgetSettings
+  investmentProfile:    UserInvestmentProfile
+}
+
+"""Paginated list of users with metadata"""
+type UserListResponse {
+  hasNextPage: Boolean!
+  hasPrevPage: Boolean!
+  items:       [User!]!
+  limit:       Int!
+  page:        Int!
+  total:       Int!
+  totalPages:  Int!
+}
+
+input AddressInput {
+  street:  String
+  city:    String
+  state:   String
+  pincode: String
+}
+
+input NotificationPreferencesInput {
+  email: Boolean
+  sms:   Boolean
+  push:  Boolean
+}
+
+input BudgetCategoriesInput {
+  food:          Float
+  travel:        Float
+  entertainment: Float
+}
+
+input UserBudgetSettingsInput {
+  monthlyBudget: Float
+  categories:    BudgetCategoriesInput
+}
+
+input UserInvestmentProfileInput {
+  riskLevel:      UserRiskProfile
+  investmentGoal: UserInvestmentGoal
+}
+
+input CreateUserInput {
+  email:       String!
+  name:        String!
+  password:    String!
+  phone:       String
+  profileType: UserProfileType
+  salary:      Float
+}
+
+input UpdateUserInput {
+  name:        String
+  email:       String
+  phone:       String
+  profileType: UserProfileType
+  salary:      Float
+
+  # Profile Information
+  profileImage: String
+  dateOfBirth:  String
+  gender:       UserGender
+  address:      AddressInput
+  country:      String
+
+  # Financial Profile
+  monthlyIncome:  Float
+  monthlyBudget:  Float
+  riskProfile:    UserRiskProfile
+  investmentGoal: UserInvestmentGoal
+
+  # Banking Preferences
+  preferredBank:           String
+  defaultCurrency:         String
+  language:                String
+  notificationPreferences: NotificationPreferencesInput
+
+  # AI Personalization
+  aiInsightsEnabled:    Boolean
+  spendingPattern:      UserSpendingPattern
+  investmentPreference: UserInvestmentPreference
+
+  # User-configurable financial settings
+  budgetSettings:    UserBudgetSettingsInput
+  investmentProfile: UserInvestmentProfileInput
+}
+
+extend type Query {
+  getUser(userId: ID!):                                                     User
+  getProfile:                                                               User
+  listUsers(limit: Int, page: Int, role: UserRole, search: String, status: UserStatus): UserListResponse!
+}
+
+extend type Mutation {
+  createUser(input: CreateUserInput!):              User!
+  deleteUser(userId: ID!):                          DeleteResult!
+  softDeleteUser(userId: ID!):                      User!
+  updateUser(input: UpdateUserInput!, userId: ID!): User!
+  updateProfile(input: UpdateUserInput!):           User!
+}

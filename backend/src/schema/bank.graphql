@@ -1,0 +1,60 @@
+type BankInterestRates {
+  savingsRate: Float!
+  fdRate: Float!
+  homeLoanRate: Float!
+  carLoanRate: Float!
+  personalLoanRate: Float!
+}
+
+type Bank {
+  id: ID!
+  bankId: ID!
+  bankName: String!
+  bankCode: String!
+  country: String!
+  interestRates: BankInterestRates!
+  features: [String!]!
+  minDeposit: Float
+  customerRating: Float
+  digitalBankingScore: Float
+  createdAt: DateTime
+  updatedAt: DateTime
+}
+
+type BankComparison {
+  banks: [Bank!]!
+  bestSavingsRate: Bank
+  lowestHomeLoanRate: Bank
+  lowestPersonalLoanRate: Bank
+}
+
+type BankListResponse {
+  items: [Bank!]!
+  total: Int!
+}
+
+type BankApplication {
+  applicationId: ID!
+  userId: String!
+  bankName: String!
+  accountType: String!
+  status: String!
+  appliedAt: DateTime
+  createdAt: DateTime
+}
+
+input CreateBankApplicationInput {
+  bankName: String!
+  accountType: String!
+}
+
+extend type Query {
+  listRegisteredBanks(country: String): BankListResponse!
+  compareBanks(bankIds: [ID!]!): BankComparison!
+  getBank(bankId: ID!): Bank
+  listBankApplications: [BankApplication!]!
+}
+
+extend type Mutation {
+  createBankApplication(input: CreateBankApplicationInput!): BankApplication!
+}

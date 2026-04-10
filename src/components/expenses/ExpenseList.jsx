@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trash2, ShoppingBag, Utensils, Bus, Play, Settings, CreditCard, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+// import from framer-motion;
 
 const getCategoryIcon = (category) => {
   switch (category?.toLowerCase()) {

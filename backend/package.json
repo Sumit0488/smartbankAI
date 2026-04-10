@@ -1,37 +1,21 @@
 {
   "name": "smartbankai-backend",
   "version": "2.0.0",
-  "description": "SmartBankAI Production Backend — AWS Serverless (Lambda + AppSync + Cognito + MongoDB)",
+  "description": "SmartBankAI Local Backend — Express + GraphQL + MongoDB",
   "main": "src/server.js",
   "engines": {
     "node": ">=18.0.0"
   },
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node scripts/kill-port.js && nodemon src/server.js",
-    "generate": "node codegen/generator.js",
-    "merge-graphql": "node scripts/mergeGraphQL.js",
-    "build": "npm ci --omit=dev && mkdir -p dist && zip -r dist/smartbankai-backend.zip core/ functions/ graphql/ services/ node_modules/ -x '**/*.test.js' -x '**/node_modules/.bin/*'",
-    "deploy": "bash scripts/deployment/deploy.sh",
-    "deploy:dev": "bash scripts/deployment/deploy.sh dev",
-    "deploy:staging": "bash scripts/deployment/deploy.sh staging",
-    "deploy:prod": "bash scripts/deployment/deploy.sh prod",
-    "rollback": "bash scripts/deployment/rollback.sh",
+    "dev": "nodemon src/server.js",
     "validate:schema": "node scripts/validateSchema.js",
     "test:db": "node scripts/testDbConnection.js",
-    "precondition": "bash scripts/precondition-check/check.sh",
     "test": "jest --forceExit --detectOpenHandles --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --passWithNoTests --forceExit"
   },
   "dependencies": {
-    "@aws-sdk/client-cognito-identity-provider": "^3.600.0",
-    "@aws-sdk/client-eventbridge": "^3.600.0",
-    "@aws-sdk/client-s3": "^3.600.0",
-    "@aws-sdk/client-ses": "^3.600.0",
-    "@aws-sdk/client-sns": "^3.600.0",
-    "@aws-sdk/client-sqs": "^3.600.0",
-    "@aws-sdk/s3-request-presigner": "^3.600.0",
     "@graphql-tools/load-files": "^7.0.1",
     "@graphql-tools/merge": "^9.1.7",
     "@graphql-tools/schema": "^10.0.31",
@@ -64,10 +48,7 @@
       "**/*.test.js"
     ],
     "collectCoverageFrom": [
-      "core/**/*.js",
-      "functions/**/*.js",
-      "graphql/resolvers/**/*.js",
-      "services/**/*.js"
+      "src/**/*.js"
     ]
   }
 }
