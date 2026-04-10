@@ -1,20 +1,18 @@
-name: SmartBankAI Manual Rollback
+name: Manual Rollback
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type ROLLBACK to confirm'
+        description: "Type ROLLBACK to confirm"
         required: true
 
 jobs:
   rollback:
     name: Rollback
     runs-on: ubuntu-latest
-    if: inputs.confirm == 'ROLLBACK'
-
+    if: ${{ inputs.confirm == 'ROLLBACK' }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Rollback complete
+      - name: Done
         run: echo "Rollback triggered by ${{ github.actor }}"

@@ -1,12 +1,9 @@
-name: SmartBankAI CI
+name: Backend CI
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
-env:
-  NODE_VERSION: '18'
 
 jobs:
   validate:
@@ -21,7 +18,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '18'
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
 
@@ -30,9 +27,13 @@ jobs:
 
       - name: Check schema files exist
         run: |
-          echo "Checking GraphQL schema files..."
-          ls src/schema/*.graphql
-          echo "✅ All schema files found"
+          count=$(ls src/schema/*.graphql 2>/dev/null | wc -l)
+          echo "Found $count schema files"
+          if [ "$count" -eq 0 ]; then
+            echo "❌ No schema files found"
+            exit 1
+          fi
+          echo "✅ Schema files OK"
 
       - name: Validate GraphQL schema
         run: |
@@ -42,7 +43,9 @@ jobs:
             const { makeExecutableSchema } = require('@graphql-tools/schema');
             const { loadFilesSync } = require('@graphql-tools/load-files');
             try {
-              const typeDefs = mergeTypeDefs(loadFilesSync(path.join(process.cwd(), 'src/schema/**/*.graphql')));
+              const typeDefs = mergeTypeDefs(
+                loadFilesSync(path.join(process.cwd(), 'src/schema/**/*.graphql'))
+              );
               makeExecutableSchema({ typeDefs, resolvers: {} });
               console.log('✅ GraphQL schema is valid');
             } catch (e) {
@@ -52,21 +55,8 @@ jobs:
           "
 
       - name: Run tests
-        run: npm test -- --passWithNoTests
-        continue-on-error: true
-
-  notify:
-    name: Status
-    runs-on: ubuntu-latest
-    needs: validate
-    if: always()
-    steps:
-      - name: Success
-        if: needs.validate.result == 'success'
-        run: echo "✅ CI passed"
-
-      - name: Failed
-        if: needs.validate.result == 'failure'
-        run: |
-          echo "❌ CI failed"
-          exit 1
+        run: npm test -- --passWithNoTests --forceExit
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/test
+          JWT_SECRET: test-secret

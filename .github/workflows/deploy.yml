@@ -1,12 +1,9 @@
-name: SmartBankAI Frontend CI
+name: Frontend CI
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
-env:
-  NODE_VERSION: '18'
 
 jobs:
   build:
@@ -18,7 +15,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '18'
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
@@ -30,5 +27,5 @@ jobs:
         env:
           VITE_API_URL: http://localhost:4001/graphql
 
-      - name: Build success
+      - name: Build complete
         run: echo "✅ Frontend build passed"
