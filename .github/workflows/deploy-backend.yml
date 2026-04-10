@@ -1,4 +1,4 @@
-name: Deploy Backend (Express Server)
+name: SmartBankAI CI
 
 on:
   push:
@@ -10,7 +10,7 @@ env:
 
 jobs:
   validate:
-    name: Validate & Test Backend
+    name: Validate Backend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -28,13 +28,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check GraphQL schema files exist
+      - name: Check schema files exist
         run: |
-          echo "Checking schema files..."
+          echo "Checking GraphQL schema files..."
           ls src/schema/*.graphql
-          echo "✅ Schema files found"
+          echo "✅ All schema files found"
 
-      - name: Validate GraphQL schema loads correctly
+      - name: Validate GraphQL schema
         run: |
           node -e "
             const path = require('path');
@@ -42,12 +42,11 @@ jobs:
             const { makeExecutableSchema } = require('@graphql-tools/schema');
             const { loadFilesSync } = require('@graphql-tools/load-files');
             try {
-              const schemaDir = path.join(__dirname, 'src/schema');
-              const typeDefs = mergeTypeDefs(loadFilesSync(path.join(schemaDir, '**/*.graphql')));
+              const typeDefs = mergeTypeDefs(loadFilesSync(path.join(process.cwd(), 'src/schema/**/*.graphql')));
               makeExecutableSchema({ typeDefs, resolvers: {} });
               console.log('✅ GraphQL schema is valid');
             } catch (e) {
-              console.error('❌ Schema validation failed:', e.message);
+              console.error('❌ Schema error:', e.message);
               process.exit(1);
             }
           "
@@ -57,18 +56,17 @@ jobs:
         continue-on-error: true
 
   notify:
-    name: Notify Status
+    name: Status
     runs-on: ubuntu-latest
     needs: validate
     if: always()
-
     steps:
-      - name: Validation Success
+      - name: Success
         if: needs.validate.result == 'success'
-        run: echo "✅ Backend validation passed"
+        run: echo "✅ CI passed"
 
-      - name: Validation Failed
+      - name: Failed
         if: needs.validate.result == 'failure'
         run: |
-          echo "❌ Backend validation failed"
+          echo "❌ CI failed"
           exit 1
