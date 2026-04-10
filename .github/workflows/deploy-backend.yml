@@ -1,11 +1,8 @@
-
 name: Deploy Backend (Express Server)
 
 on:
   push:
     branches: [main]
-    paths:
-      - 'backend/**'
   workflow_dispatch:
 
 env:
@@ -13,7 +10,7 @@ env:
 
 jobs:
   validate:
-    name: Validate GraphQL Schema
+    name: Validate & Test Backend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,32 +28,45 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate GraphQL schema
-        run: npx graphql-schema-linter "graphql/schema/**/*.graphql"
+      - name: Check GraphQL schema files exist
+        run: |
+          echo "Checking schema files..."
+          ls src/schema/*.graphql
+          echo "✅ Schema files found"
+
+      - name: Validate GraphQL schema loads correctly
+        run: |
+          node -e "
+            const path = require('path');
+            const { mergeTypeDefs } = require('@graphql-tools/merge');
+            const { makeExecutableSchema } = require('@graphql-tools/schema');
+            const { loadFilesSync } = require('@graphql-tools/load-files');
+            try {
+              const schemaDir = path.join(__dirname, 'src/schema');
+              const typeDefs = mergeTypeDefs(loadFilesSync(path.join(schemaDir, '**/*.graphql')));
+              makeExecutableSchema({ typeDefs, resolvers: {} });
+              console.log('✅ GraphQL schema is valid');
+            } catch (e) {
+              console.error('❌ Schema validation failed:', e.message);
+              process.exit(1);
+            }
+          "
 
       - name: Run tests
         run: npm test -- --passWithNoTests
         continue-on-error: true
 
-  # TODO: Add deployment to your hosting platform
-  # Options:
-  # - AWS EC2 / ECS / Fargate
-  # - Heroku
-  # - Railway
-  # - Render
-  # - DigitalOcean App Platform
-  
   notify:
     name: Notify Status
     runs-on: ubuntu-latest
     needs: validate
     if: always()
-    
+
     steps:
       - name: Validation Success
         if: needs.validate.result == 'success'
         run: echo "✅ Backend validation passed"
-      
+
       - name: Validation Failed
         if: needs.validate.result == 'failure'
         run: |
