@@ -17,10 +17,11 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install dependencies (clean install for native bindings)
-        run: |
-          rm -f package-lock.json
-          npm install
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Linux native binding for @tailwindcss/oxide
+        run: npm install @tailwindcss/oxide-linux-x64-gnu@4.2.1 --no-save --prefer-online
 
       - name: Build
         run: npm run build
