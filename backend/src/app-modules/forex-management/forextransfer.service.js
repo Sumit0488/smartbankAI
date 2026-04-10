@@ -7,10 +7,10 @@
  * Falls back gracefully when API key is absent (test/dev mode).
  */
 
-const ForexTransfer = require('./forexTransfer.model');
+const ForexTransfer = require('./forextransfer.model');
 const { sendForexConfirmation } = require('../../shared/notification');
 const { UserInputError, ForbiddenError } = require('apollo-server-express');
-const { initiateTransferSchema, updateStatusSchema, validate } = require('./forexTransfer.validation');
+const { initiateTransferSchema, updateStatusSchema, validate } = require('./forextransfer.validation');
 const { v4: uuidv4 } = require('uuid');
 
 // ── Live Rate Fetcher ─────────────────────────────────────────────────────────
