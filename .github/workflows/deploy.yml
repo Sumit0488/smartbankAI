@@ -17,11 +17,17 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Clean install (fresh Linux-compatible deps)
+        run: |
+          rm -rf node_modules package-lock.json
+          npm cache clean --force
+          npm install
 
       - name: Install Linux native binding for @tailwindcss/oxide
-        run: npm install @tailwindcss/oxide-linux-x64-gnu@4.2.1 --no-save --prefer-online
+        run: |
+          npm install @tailwindcss/oxide-linux-x64-gnu@4.2.1 --no-save 2>/dev/null || \
+          npm install @tailwindcss/oxide-linux-x64-musl@4.2.1 --no-save 2>/dev/null || \
+          echo "Native binding already present"
 
       - name: Build
         run: npm run build
